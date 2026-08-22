@@ -164,6 +164,16 @@
 const STORAGE_KEY  = "void_player_name";
 const SERVER_URL   = "http://52.59.244.144:3001";
 
+// Stop sesi — bir kez yükle, defalarca çal
+const stopSound = new Audio("audio/button music.mp3");
+stopSound.volume = 0.6;
+
+function playStopSound() {
+    // Aynı ses tekrar tetiklenince baştan başlat
+    stopSound.currentTime = 0;
+    stopSound.play().catch(() => {}); // autoplay policy hatasını sessizce yut
+}
+
 // Oyuncu renkleri — index sırasına göre
 // 0=yeşil(host)  1=mavi  2=turuncu  3=kırmızı
 const PLAYER_COLORS = ["#00e87a", "#3b9eff", "#ff8c00", "#ff3344"];
@@ -580,6 +590,7 @@ socket.on("game:round_start", ({ round, target, players, winScore }) => {
 });
 
 socket.on("game:player_stopped", ({ name }) => {
+    playStopSound();
     markStopped(name);
 });
 
@@ -809,6 +820,8 @@ function sendStop() {
     document.removeEventListener("keydown", S.keyHandler);
 
     const elapsed = (performance.now() - S.startTime) / 1000;
+
+    playStopSound();
 
     // Masadaki buton
     const btn = document.querySelector(".ts-btn-self");
