@@ -58,7 +58,7 @@ app.get("/health", (req, res) => {
 // şimdilik kapalı — geliştirme sırasında frontend ayrı çalışır
 
 // ── 8. Sunucuyu başlat ──────────────────────────────────────────
-httpServer.listen(ServerConfig.PORT, () => {
+httpServer.listen(ServerConfig.PORT, "0.0.0.0", () => {
   console.log("─────────────────────────────────────");
   console.log(`  VOID Server çalışıyor`);
   console.log(`  http://localhost:${ServerConfig.PORT}`);
