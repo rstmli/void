@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VOID — Play</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="http://localhost:3001/socket.io/socket.io.js"></script>
+</head>
+<body>
+<div class="app">
+
+<!-- TOPBAR -->
+<header class="topbar">
+    <div class="logo">
+        <span class="logo-mark">V</span>
+        <span class="logo-text">VOID</span>
+    </div>
+    <nav class="navigation">
+        <button class="nav-item active">OYNA</button>
+        <button class="nav-item">OYUNLAR</button>
+        <button class="nav-item">REYTİNQ</button>
+    </nav>
+    <div class="profile">
+        <div class="profile-info">
+            <span class="profile-name" id="topbarName">—</span>
+            <span class="profile-status">ONLINE</span>
+        </div>
+        <div class="profile-avatar" id="topbarAvatar">?</div>
+        <button class="logout-btn hidden" id="logoutBtn" title="Çıxış">
+            <i data-lucide="log-out"></i>
+        </button>
+    </div>
+</header>
+
+<main class="main">
+
+<!-- ═══════════════ JOIN SCREEN ═══════════════ -->
+<section class="lobby-view" id="lobbyView">
+    <div id="joinScreen">
+        <div class="lobby-header">
+            <div>
+                <span class="eyebrow">PRIVATE PARTY</span>
+                <h1>Oyuna<br><span>qoşul.</span></h1>
+                <p>Oda yarat və ya mövcud oda kodunu daxil et.</p>
+            </div>
+        </div>
+        <div class="join-form">
+            <div class="join-field">
+                <label class="join-label">OYUNÇU ADI</label>
+                <input type="text" id="playerNameInput" class="join-input"
+                    placeholder="adını daxil et..." maxlength="16" autocomplete="off"/>
+            </div>
+            <div class="join-row">
+                <button class="play-button" id="createRoomBtn">
+                    <span>ODA YARAT</span><span class="play-arrow">→</span>
+                </button>
+                <div class="join-or">YA DA</div>
+                <div class="join-code-row">
+                    <input type="text" id="roomCodeInput" class="join-input join-code-input"
+                        placeholder="VOID-XXXX" maxlength="9" autocomplete="off"/>
+                    <button class="join-btn" id="joinRoomBtn">QOŞUL</button>
+                </div>
+            </div>
+            <div class="join-error hidden" id="joinError"></div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ WAITING SCREEN ═══════════════ -->
+    <div id="waitingScreen" class="hidden">
+        <div class="lobby-header">
+            <div>
+                <span class="eyebrow">PRIVATE PARTY</span>
+                <h1>Komandanı<br><span>gözlə.</span></h1>
+                <p>Dostlarına oda kodunu göndər.</p>
+            </div>
+            <div class="party-code">
+                <span>PARTY CODE</span>
+                <div class="code-copy-row">
+                    <strong id="waitingRoomCode">—</strong>
+                    <button class="copy-btn" id="copyCodeBtn" title="Kopyala">
+                        <i data-lucide="copy"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Oda ayarları (sadece host görür) -->
+        <div class="room-settings hidden" id="roomSettings">
+            <span class="settings-label">// ODA AYARLARI</span>
+            <div class="settings-row">
+                <label class="settings-key">QALIB PUANI</label>
+                <div class="score-picker">
+                    <button class="score-btn" id="scoreDown">−</button>
+                    <span id="scoreValue">3</span>
+                    <button class="score-btn" id="scoreUp">+</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="players-section">
+            <div class="section-title">
+                <span>OYUNÇULAR</span>
+                <small id="playerCountLabel">1 / 4</small>
+            </div>
+            <div class="player-grid" id="playerGrid"></div>
+        </div>
+
+        <div class="lobby-bottom">
+            <div class="party-status">
+                <div class="status-icon">●</div>
+                <div>
+                    <strong id="lobbyStatusText">Gözlənilir...</strong>
+                    <span id="lobbyStatusSub">Oyunçuları gözlə</span>
+                </div>
+            </div>
+            <div class="lobby-actions">
+                <button class="ready-btn" id="readyBtn">HAZIR DEYİLƏM</button>
+                <button class="play-button hidden" id="startGameBtn">
+                    <span>BAŞLA</span><span class="play-arrow">→</span>
+                </button>
+                <button class="solo-btn hidden" id="soloBtn">
+                    <span>SOLO ANTRENMAN</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════ GAME VIEW ═══════════════ -->
+<section class="timestop-view hidden" id="timestopView"></section>
+
+</main>
+
+<!-- CHAT (overlay — her zaman görünür, oyun sırasında da) -->
+<div class="chat-panel" id="chatPanel">
+    <div class="chat-header">
+        <span class="chat-title">// CHAT</span>
+        <button class="chat-toggle" id="chatToggle">
+            <i data-lucide="chevron-down"></i>
+        </button>
+    </div>
+    <div class="chat-messages" id="chatMessages"></div>
+    <div class="chat-input-row">
+        <input type="text" id="chatInput" class="chat-input"
+            placeholder="mesaj yaz..." maxlength="200" autocomplete="off"/>
+        <button class="chat-send" id="chatSend">
+            <i data-lucide="send"></i>
+        </button>
+    </div>
+</div>
+
+<div class="background-grid"></div>
+<div class="background-glow"></div>
+</div>
+
+<script>
+"use strict";
+
+/* ════════════════════════════════════════════════════════════
+   CONSTANTS
+════════════════════════════════════════════════════════════ */
+const STORAGE_KEY  = "void_player_name";
+const SERVER_URL   = "http://localhost:3001";
+
+// Oyuncu renkleri — index sırasına göre
+// 0=yeşil(host)  1=mavi  2=turuncu  3=kırmızı
+const PLAYER_COLORS = ["#00e87a", "#3b9eff", "#ff8c00", "#ff3344"];
+
+/** Oyuncunun global sırasına göre renk döner */
+function playerColor(nameOrIndex) {
+    if (typeof nameOrIndex === "number") return PLAYER_COLORS[nameOrIndex] ?? PLAYER_COLORS[0];
+    const idx = S.players.findIndex(p => p.name === nameOrIndex);
+    return PLAYER_COLORS[idx >= 0 ? idx : 0];
+}
+
+/* ════════════════════════════════════════════════════════════
+   APP STATE
+════════════════════════════════════════════════════════════ */
+const S = {
+    myName:    "",
+    roomCode:  "",
+    isHost:    false,
+    winScore:  3,
+    round:     0,
+    target:    0,
+    players:   [],
+    running:   false,
+    startTime: 0,
+    elapsed:   0,
+    rafId:     null,
+    keyHandler:null,
+};
+
+/* ════════════════════════════════════════════════════════════
+   SOCKET
+════════════════════════════════════════════════════════════ */
+let socket;
+try {
+    socket = io(SERVER_URL, { autoConnect: true, reconnectionAttempts: 5 });
+} catch(e) {
+    socket = { emit:()=>{}, on:()=>{}, connected: false };
+    console.warn("Socket.io yüklənmədi — offline mod");
+}
+
+/* ════════════════════════════════════════════════════════════
+   DOM REFS
+════════════════════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+const lobbyView      = $("lobbyView");
+const joinScreen     = $("joinScreen");
+const waitingScreen  = $("waitingScreen");
+const timestopView   = $("timestopView");
+const joinError      = $("joinError");
+const playerGrid     = $("playerGrid");
+const playerCountLbl = $("playerCountLabel");
+const waitingCode    = $("waitingRoomCode");
+const lobbyStatus    = $("lobbyStatusText");
+const lobbyStatusSub = $("lobbyStatusSub");
+const startGameBtn   = $("startGameBtn");
+const readyBtn       = $("readyBtn");
+const soloBtn        = $("soloBtn");
+const roomSettings   = $("roomSettings");
+const scoreValue     = $("scoreValue");
+const topbarName     = $("topbarName");
+const topbarAvatar   = $("topbarAvatar");
+const logoutBtn      = $("logoutBtn");
+const chatPanel      = $("chatPanel");
+const chatMessages   = $("chatMessages");
+const chatInput      = $("chatInput");
+
+/* ════════════════════════════════════════════════════════════
+   PERSISTENCE — isim tarayıcı kapanana kadar tutulur
+════════════════════════════════════════════════════════════ */
+function loadSavedName() {
+    const saved = sessionStorage.getItem(STORAGE_KEY);
+    if (saved) {
+        $("playerNameInput").value = saved;
+        // Otomatik oda ekranına geçme — kullanıcı hâlâ girmeyi onaylamalı
+    }
+}
+
+function saveName(name) {
+    sessionStorage.setItem(STORAGE_KEY, name);
+}
+
+function clearName() {
+    sessionStorage.removeItem(STORAGE_KEY);
+}
+
+/* ════════════════════════════════════════════════════════════
+   HELPERS
+════════════════════════════════════════════════════════════ */
+function showError(msg) {
+    joinError.textContent = msg;
+    joinError.classList.remove("hidden");
+    setTimeout(() => joinError.classList.add("hidden"), 4000);
+}
+
+function updateTopbar(name) {
+    topbarName.textContent   = name;
+    topbarAvatar.textContent = name && name !== "—" ? name.charAt(0).toUpperCase() : "?";
+    logoutBtn.style.display  = name && name !== "—" ? "grid" : "none";
+}
+
+/** Süre farkını okunabilir formatta döner */
+/** Süre farkını arrow + 2 decimal ile göster */
+function diffLabel(diff) {
+    const arrowSvg = `<svg class="diff-arrow" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+    if (diff < 0.001) return `${arrowSvg}<span>0.00s</span>`;
+    return `${arrowSvg}<span>${diff.toFixed(2)}s</span>`;
+}
+
+/** Farka göre renk sınıfı */
+function diffClass(diff) {
+    if (diff < 0.001) return "diff-perfect";
+    if (diff < 0.1)   return "diff-great";
+    if (diff < 0.3)   return "diff-ok";
+    return "diff-bad";
+}
+
+function dotsHtml(score, max) {
+    return Array.from({ length: max }, (_, i) =>
+        `<span class="ts-score-dot ${i < score ? "ts-dot-filled" : ""}"></span>`
+    ).join("");
+}
+
+function dotsHtmlColored(score, max, color) {
+    return Array.from({ length: max }, (_, i) =>
+        `<span class="ts-score-dot" style="${i < score ? `background:${color};border-color:${color}` : ""}"></span>`
+    ).join("");
+}
+
+/**
+ * Oyuncu sayısına göre masa SVG'sini döner.
+ * @param {number} count — aktif oyuncu sayısı
+ */
+function masaImg(count) {
+    const map = {
+        1: "img/masa/1 kisilik test.svg",
+        2: "img/masa/2 li masa.svg",
+        3: "img/masa/3 lu masa.svg",
+        4: "img/masa/4 lu masa.svg",
+    };
+    const src = map[count] || map[4];
+    return `<img src="${src}" class="ts-masa-img" alt="masa" draggable="false">`;
+}
+
+/* ════════════════════════════════════════════════════════════
+   WAITING SCREEN
+════════════════════════════════════════════════════════════ */
+function showWaitingScreen(room) {
+    S.roomCode = room.code;
+    S.winScore = room.winScore;
+    S.isHost   = room.players.find(p => p.name === S.myName)?.isHost ?? false;
+
+    saveName(S.myName);
+    updateTopbar(S.myName);
+
+    joinScreen.classList.add("hidden");
+    waitingScreen.classList.remove("hidden");
+    chatPanel.classList.remove("hidden-chat");
+    lobbyView.classList.remove("hidden");
+    timestopView.classList.add("hidden");
+
+    // Host UI
+    if (S.isHost) {
+        roomSettings.classList.remove("hidden");
+        startGameBtn.classList.remove("hidden");
+        soloBtn.classList.remove("hidden");
+        scoreValue.textContent = room.winScore;
+    }
+
+    updateWaiting(room);
+}
+
+function updateWaiting(room) {
+    S.winScore = room.winScore;
+    scoreValue.textContent = room.winScore;
+    playerCountLbl.textContent = `${room.players.length} / 4`;
+    waitingCode.textContent    = room.code;
+
+    // Host güncelle
+    S.isHost = room.players.find(p => p.name === S.myName)?.isHost ?? false;
+    if (S.isHost) {
+        roomSettings.classList.remove("hidden");
+        startGameBtn.classList.remove("hidden");
+        soloBtn.classList.remove("hidden");
+    }
+
+    // Host kendi hazır butonuna ihtiyaç duymaz
+    if (S.isHost) {
+        readyBtn.classList.add("hidden");
+    } else {
+        readyBtn.classList.remove("hidden");
+        const myPlayer = room.players.find(p => p.name === S.myName);
+        if (myPlayer?.isReady) {
+            readyBtn.textContent = "HAZIRDI ✓";
+            readyBtn.classList.add("is-ready");
+        } else {
+            readyBtn.textContent = "HAZIR DEYİLƏM";
+            readyBtn.classList.remove("is-ready");
+        }
+    }
+
+    playerGrid.innerHTML = room.players.map((p, i) => {
+        const isSelf   = p.name === S.myName;
+        const readyCls = (p.isHost || p.isReady) ? "ready" : "";
+        const connCls  = p.connected === false ? "disconnected" : "";
+        return `
+        <div class="player-card current-player ${readyCls} ${connCls}">
+            <div class="player-number">0${i+1}</div>
+            <div class="player-avatar big">${p.name.charAt(0).toUpperCase()}</div>
+            <div class="player-details">
+                <span class="player-label">${p.isHost ? "HOST" : isSelf ? "SƏN" : "OYUNÇU"}</span>
+                <strong>${p.name}</strong>
+                <span class="player-state ${readyCls}">${p.isHost ? "✓ HOST" : p.isReady ? "✓ HAZIR" : "GÖZLƏNILIR"}</span>
+            </div>
+            <div class="online-dot ${(p.isHost || p.isReady) ? "dot-ready" : ""}"></div>
+        </div>`;
+    }).join("");
+
+    // Boş slotlar
+    for (let i = room.players.length; i < 4; i++) {
+        playerGrid.innerHTML += `
+        <div class="player-card" style="opacity:.2">
+            <div class="plus" style="margin:auto;margin-top:40px">+</div>
+        </div>`;
+    }
+
+    // Status — host hazır sayılır
+    const nonHostPlayers = room.players.filter(p => !p.isHost);
+    const readyCount     = nonHostPlayers.filter(p => p.isReady).length;
+    const allNonHostReady = nonHostPlayers.length === 0 || readyCount === nonHostPlayers.length;
+
+    if (room.players.length < 2) {
+        lobbyStatus.textContent    = "Ən az 2 oyunçu lazımdır";
+        lobbyStatusSub.textContent = `${room.players.length}/2 qoşulub`;
+    } else if (!allNonHostReady) {
+        lobbyStatus.textContent    = "Oyunçular hazır deyil";
+        lobbyStatusSub.textContent = `${readyCount}/${nonHostPlayers.length} hazır`;
+    } else {
+        lobbyStatus.textContent    = "Hazır! Host başladacaq";
+        lobbyStatusSub.textContent = "Bütün oyunçular hazırdır";
+    }
+
+    startGameBtn.disabled = room.players.length < 2 || !allNonHostReady;
+}
+
+/* ════════════════════════════════════════════════════════════
+   CHAT
+════════════════════════════════════════════════════════════ */
+let chatOpen = true;
+
+function appendChat(name, message, type = "normal") {
+    const div = document.createElement("div");
+    div.className = `chat-msg chat-${type}`;
+    if (type === "system" || type === "leave") {
+        div.innerHTML = `<span class="chat-sys">${message}</span>`;
+    } else {
+        const isSelf = name === S.myName;
+        div.innerHTML = `
+            <span class="chat-name ${isSelf ? "chat-self" : ""}">${name}</span>
+            <span class="chat-text">${escapeHtml(message)}</span>`;
+    }
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function escapeHtml(str) {
+    return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+$("chatToggle").addEventListener("click", () => {
+    chatOpen = !chatOpen;
+    chatPanel.classList.toggle("chat-collapsed", !chatOpen);
+    $("chatToggle").querySelector("i").setAttribute("data-lucide", chatOpen ? "chevron-down" : "chevron-up");
+    lucide.createIcons();
+});
+
+$("chatSend").addEventListener("click", sendChat);
+chatInput.addEventListener("keydown", e => { if (e.code === "Enter") sendChat(); });
+
+function sendChat() {
+    const msg = chatInput.value.trim();
+    if (!msg || !S.roomCode) return;
+    socket.emit("chat:send", { code: S.roomCode, message: msg });
+    chatInput.value = "";
+}
+
+/* ════════════════════════════════════════════════════════════
+   LOBBY EVENT LISTENERS
+════════════════════════════════════════════════════════════ */
+$("createRoomBtn").addEventListener("click", () => {
+    const name = $("playerNameInput").value.trim();
+    if (!name) return showError("Adını daxil et");
+    S.myName = name;
+    socket.emit("room:create", { name });
+});
+
+$("joinRoomBtn").addEventListener("click", () => {
+    const name = $("playerNameInput").value.trim();
+    const code = $("roomCodeInput").value.trim().toUpperCase();
+    if (!name) return showError("Adını daxil et");
+    if (!code) return showError("Oda kodunu daxil et");
+    S.myName = name;
+    socket.emit("room:join", { name, code });
+});
+
+$("playerNameInput").addEventListener("keydown", e => { if (e.code === "Enter") $("createRoomBtn").click(); });
+$("roomCodeInput").addEventListener("keydown",   e => { if (e.code === "Enter") $("joinRoomBtn").click(); });
+
+// Hazır butonu
+readyBtn.addEventListener("click", () => {
+    socket.emit("room:ready");
+});
+
+// Başlat (host)
+startGameBtn.addEventListener("click", () => {
+    socket.emit("room:start", { code: S.roomCode });
+});
+
+// Solo antrenman (host, tek başına)
+soloBtn.addEventListener("click", () => {
+    socket.emit("room:solo", { code: S.roomCode });
+});
+
+// Kod kopyala
+$("copyCodeBtn").addEventListener("click", () => {
+    navigator.clipboard?.writeText(S.roomCode).then(() => {
+        const btn = $("copyCodeBtn");
+        btn.classList.add("copied");
+        setTimeout(() => btn.classList.remove("copied"), 1500);
+    });
+});
+
+// Çıkış
+logoutBtn.addEventListener("click", () => {
+    // Odadan çık
+    if (S.roomCode && socket.connected) {
+        socket.disconnect();
+        socket.connect();  // yeni bağlantı aç — eski socket disconnect event'i tetikler
+    }
+    clearName();
+    S.myName   = "";
+    S.roomCode = "";
+    S.isHost   = false;
+    // UI sıfırla
+    waitingScreen.classList.add("hidden");
+    timestopView.classList.add("hidden");
+    joinScreen.classList.remove("hidden");
+    lobbyView.classList.remove("hidden");
+    topbarName.textContent   = "—";
+    topbarAvatar.textContent = "?";
+    logoutBtn.style.display  = "none";
+    chatPanel.classList.add("hidden-chat");
+    roomSettings.classList.add("hidden");
+    startGameBtn.classList.add("hidden");
+    soloBtn.classList.add("hidden");
+});
+
+// Oda ayarları — win score
+$("scoreDown").addEventListener("click", () => {
+    const cur = parseInt(scoreValue.textContent);
+    if (cur > 3) {
+        socket.emit("room:settings", { winScore: cur - 1 });
+    }
+});
+$("scoreUp").addEventListener("click", () => {
+    const cur = parseInt(scoreValue.textContent);
+    if (cur < 10) {
+        socket.emit("room:settings", { winScore: cur + 1 });
+    }
+});
+
+/* ════════════════════════════════════════════════════════════
+   SOCKET EVENTS — ROOM
+════════════════════════════════════════════════════════════ */
+socket.on("connect",    () => console.log("[Socket] Bağlandı:", socket.id));
+socket.on("disconnect", () => {
+    appendChat("", "Server ilə əlaqə kəsildi. Yenidən qoşulunur...", "system");
+});
+socket.on("error", ({ message }) => showError(message));
+
+socket.on("room:created",     ({ room }) => showWaitingScreen(room));
+socket.on("room:joined",      ({ room }) => showWaitingScreen(room));
+socket.on("room:updated",     ({ room }) => updateWaiting(room));
+socket.on("room:player_joined",({ room })=> updateWaiting(room));
+socket.on("room:player_left", ({ name, room }) => {
+    // Oda boşaldıysa (sadece biz kaldık veya hepsi gitti) join ekranına dön
+    if (!room || room.players.length === 0) {
+        waitingScreen.classList.add("hidden");
+        joinScreen.classList.remove("hidden");
+        S.roomCode = "";
+        appendChat("", "Oda boşaldı", "system");
+        return;
+    }
+    updateWaiting(room);
+    appendChat("", `${name} odadan ayrıldı`, "leave");
+});
+
+/* ════════════════════════════════════════════════════════════
+   SOCKET EVENTS — GAME
+════════════════════════════════════════════════════════════ */
+socket.on("game:countdown", ({ count }) => {
+    renderCountdown(count);
+});
+
+socket.on("game:round_start", ({ round, target, players, winScore }) => {
+    S.round     = round;
+    S.target    = target;
+    S.players   = players;
+    S.winScore  = winScore;
+    S.startTime = performance.now();
+    S.running   = true;
+    renderRound();
+});
+
+socket.on("game:player_stopped", ({ name }) => {
+    markStopped(name);
+});
+
+socket.on("game:round_result", (data) => {
+    S.running = false;
+    cancelAnimationFrame(S.rafId);
+    document.removeEventListener("keydown", S.keyHandler);
+    renderRoundResult(data);
+});
+
+socket.on("game:finished", (data) => {
+    S.running = false;
+    cancelAnimationFrame(S.rafId);
+    renderFinal(data);
+});
+
+socket.on("game:aborted", ({ reason, playerName }) => {
+    S.running = false;
+    cancelAnimationFrame(S.rafId);
+    document.removeEventListener("keydown", S.keyHandler);
+    renderAborted(reason);
+    appendChat("", reason, "leave");
+});
+
+socket.on("game:afk_disqualified", ({ names }) => {
+    S.running = false;
+    cancelAnimationFrame(S.rafId);
+    document.removeEventListener("keydown", S.keyHandler);
+    const msg = `${names.join(", ")} — vaxt bitdi, diskvalifikasiya!`;
+    appendChat("", msg, "system");
+    // Bir sonraki event (game:finished veya game:round_result) gelecek
+    // Şimdilik bildirimi göster
+    const notice = document.createElement("div");
+    notice.className = "afk-notice";
+    notice.textContent = `⚡ ${msg}`;
+    timestopView.querySelector(".ts-table-scene")?.appendChild(notice);
+    setTimeout(() => notice.remove(), 3000);
+});
+
+socket.on("game:last_standing", ({ name, reason }) => {
+    S.running = false;
+    cancelAnimationFrame(S.rafId);
+    renderLastStanding(name, reason);
+});
+
+socket.on("chat:message", ({ name, message }) => {
+    appendChat(name, message);
+});
+
+socket.on("chat:system", ({ message, type }) => {
+    appendChat("", message, type || "system");
+});
+
+/* ════════════════════════════════════════════════════════════
+   GAME UI — COUNTDOWN
+════════════════════════════════════════════════════════════ */
+function renderCountdown(count) {
+    if (count === 3) {
+        // İlk tik — sahneyi oluştur
+        lobbyView.classList.add("hidden");
+        timestopView.classList.remove("hidden");
+
+        const pos   = ["top","right","bottom","left"];
+        const myIdx = S.players.findIndex(p => p.name === S.myName);
+        const reord = myIdx >= 0
+            ? [S.players[myIdx], ...S.players.filter(p => p.name !== S.myName)]
+            : S.players;
+        const cpos  = ["bottom","top","left","right"];
+        const seats = reord.map((p, i) => {
+            const origIdx = S.players.indexOf(p);
+            const colorIdx = origIdx >= 0 ? origIdx : i;
+            return `
+            <div class="ts-seat ts-seat-${cpos[i]} ts-seat-waiting player-color-${colorIdx}">
+                <i data-lucide="armchair" class="ts-chair-icon ts-chair-idle"></i>
+                <div class="ts-seat-name ${p.name===S.myName?"ts-name-self":""}">${p.name}</div>
+            </div>`}).join("");
+
+        timestopView.innerHTML = `
+            <div class="ts-table-scene" id="tsScene">
+                ${seats}
+                <div class="ts-table-center ts-table-countdown">
+                    ${masaImg(S.players.length)}
+                    <span class="ts-eyebrow">TIME STOP</span>
+                    <div class="ts-countdown-num ts-pop" id="tsCountNum" style="color:var(--red)">${count}</div>
+                    <div class="ts-countdown-label">hazırlaşın...</div>
+                </div>
+            </div>`;
+        lucide.createIcons();
+        return;
+    }
+
+    const el = $("tsCountNum");
+    if (!el) return;
+    el.classList.remove("ts-pop");
+    void el.offsetWidth;
+    if (count > 0) {
+        el.textContent = count;
+        el.style.color = "var(--red)";
+    } else {
+        el.textContent = "BAŞLA";
+        el.style.color = "var(--green)";
+        $("tsScene")?.classList.add("ts-go-flash");
+    }
+    el.classList.add("ts-pop");
+}
+
+/* ════════════════════════════════════════════════════════════
+   GAME UI — ROUND
+════════════════════════════════════════════════════════════ */
+function renderRound() {
+    // Kendi koltuğum her zaman bottom — diğerleri top/left/right
+    const allPos = ["bottom", "top", "left", "right"];
+    const myIndex = S.players.findIndex(p => p.name === S.myName);
+    // Oyuncuları yeniden sırala: ben her zaman 0. index (bottom)
+    const reordered = myIndex >= 0
+        ? [S.players[myIndex], ...S.players.filter(p => p.name !== S.myName)]
+        : S.players;
+
+    const isSolo = S.players.length === 1;
+
+    const seats = reordered.map((p, i) => {
+        const self      = p.name === S.myName;
+        const pos       = allPos[i] || "top";
+        // Renk: reordered dizisindeki orijinal index'e göre
+        // 0=yeşil(host), 1=mavi, 2=turuncu, 3=kırmızı
+        const origIdx   = S.players.indexOf(p);
+        const colorIdx  = origIdx >= 0 ? origIdx : i;
+        return `
+        <div class="ts-seat ts-seat-${pos} player-color-${colorIdx}" data-name="${p.name}">
+            <i data-lucide="armchair" class="ts-chair-icon${self?" chair-self":""}"></i>
+            <div class="ts-seat-score">${dotsHtml(p.score, S.winScore)}</div>
+            <div class="ts-seat-name ${self?"ts-name-self":""}">${self?"SƏN · ":""}${p.name}</div>
+            <button class="ts-stop-btn ${self?"ts-btn-self":"ts-btn-other"}" data-name="${p.name}"
+                    ${self?"":"disabled"}>
+                <svg viewBox="0 0 64 64" fill="none" class="ts-btn-svg">
+                    <rect x="18" y="18" width="28" height="28" rx="5" fill="white"/>
+                </svg>
+            </button>
+            <div class="ts-seat-result hidden" data-res="${p.name}"></div>
+        </div>`;
+    }).join("");
+
+    timestopView.innerHTML = `
+        <div class="ts-game-header">
+            <button class="ts-back-btn" id="tsBackBtn">← GERİ</button>
+            <span class="ts-eyebrow">TIME STOP — TUR ${S.round}</span>
+            <span class="ts-eyebrow" style="color:var(--muted)">
+                ${isSolo ? "ANTRENMAN" : `İLK ${S.winScore} QALIB`}
+            </span>
+        </div>
+        <div class="ts-table-scene ts-scene-game" id="tsScene">
+            ${seats}
+            <div class="ts-table-surface">
+                <div class="ts-table-center">
+                    <span class="ts-target-label">HƏDƏF</span>
+                    <div class="ts-target-time">${S.target.toFixed(2)}<span class="ts-unit">s</span></div>
+                    <div class="ts-table-hint">düymənə bas</div>
+                </div>
+            </div>
+        </div>
+        <!-- Mobil stop bar -->
+        <div class="mobile-stop-bar" id="mobileStopBar">
+            <button class="mobile-stop-btn player-color-0" id="mobileStopBtn"
+                    style="background: var(--player-color)">
+                <svg viewBox="0 0 64 64" fill="none" style="width:34px;height:34px">
+                    <rect x="18" y="18" width="28" height="28" rx="5" fill="white"/>
+                </svg>
+                <span>DURDUR</span>
+            </button>
+        </div>`;
+
+    lucide.createIcons();
+
+    // Mobil stop bar rengini kendi oyuncuya göre ayarla
+    const myOrigIdx  = S.players.findIndex(p => p.name === S.myName);
+    const myColorIdx = myOrigIdx >= 0 ? myOrigIdx : 0;
+    const mobileBtn  = $("mobileStopBtn");
+    if (mobileBtn) {
+        mobileBtn.className = `mobile-stop-btn player-color-${myColorIdx}`;
+        mobileBtn.style.background = `var(--player-color)`;
+    }
+
+    $("tsBackBtn").addEventListener("click", () => {
+        cancelAnimationFrame(S.rafId);
+        document.removeEventListener("keydown", S.keyHandler);
+        S.running = false;
+        timestopView.classList.add("hidden");
+        lobbyView.classList.remove("hidden");
+    });
+
+    // Masadaki buton (tablet/desktop)
+    document.querySelector(`.ts-btn-self`)
+        ?.addEventListener("click", () => sendStop());
+
+    // Mobil alt bar butonu
+    $("mobileStopBtn")?.addEventListener("click", () => sendStop());
+
+    S.keyHandler = e => {
+        if ((e.code === "Space" || e.code === "Enter") && S.running) {
+            e.preventDefault();
+            sendStop();
+        }
+    };
+    document.addEventListener("keydown", S.keyHandler);
+
+    // Client-side AFK guard: target + 10s geçerse oto-stop
+    const afkMs = (S.target + 10) * 1000;
+    const afkTimer = setTimeout(() => {
+        if (S.running) {
+            console.log("[AFK] Oto-stop tetiklendi");
+            sendStop();
+        }
+    }, afkMs);
+
+    // RAF loop — sadece elapsed için
+    S.startTime = performance.now();
+    (function loop(now) {
+        if (!S.running) { clearTimeout(afkTimer); return; }
+        S.elapsed = (now - S.startTime) / 1000;
+        S.rafId   = requestAnimationFrame(loop);
+    })(performance.now());
+}
+
+function sendStop() {
+    if (!S.running) return;
+    S.running = false;
+    document.removeEventListener("keydown", S.keyHandler);
+
+    const elapsed = (performance.now() - S.startTime) / 1000;
+
+    // Masadaki buton
+    const btn = document.querySelector(".ts-btn-self");
+    if (btn) {
+        btn.disabled = true;
+        btn.classList.add("ts-stopped");
+        btn.innerHTML = stopSvg("check");
+    }
+
+    // Mobil bar butonu
+    const mBtn = $("mobileStopBtn");
+    if (mBtn) {
+        mBtn.disabled = true;
+        mBtn.classList.add("mobile-stop-done");
+        mBtn.innerHTML = `
+            <svg viewBox="0 0 64 64" fill="none" style="width:36px;height:36px">
+                <circle cx="32" cy="32" r="30" stroke="currentColor" stroke-width="2.5"/>
+                <polyline points="20,34 28,42 44,24" stroke="currentColor" stroke-width="4"
+                    stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </svg>
+            <span>${elapsed.toFixed(2)}s</span>`;
+    }
+
+    // Kendi zamanını göster
+    const res = document.querySelector(`.ts-seat-result[data-res="${S.myName}"]`);
+    if (res) { res.textContent = elapsed.toFixed(2)+"s"; res.classList.remove("hidden"); }
+
+    socket.emit("game:stop", { code: S.roomCode, stoppedAt: elapsed });
+}
+
+function markStopped(name) {
+    if (name === S.myName) return;
+    const btn = document.querySelector(`.ts-stop-btn[data-name="${name}"]`);
+    if (btn) {
+        btn.classList.add("ts-stopped");
+        btn.innerHTML = stopSvg("waiting");
+    }
+}
+
+function stopSvg(type) {
+    if (type === "check") return `
+        <svg viewBox="0 0 64 64" fill="none" class="ts-btn-svg">
+            <circle cx="32" cy="32" r="30" stroke="currentColor" stroke-width="2.5"/>
+            <polyline points="20,34 28,42 44,24" stroke="currentColor" stroke-width="4"
+                stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>`;
+    return `
+        <svg viewBox="0 0 64 64" fill="none" class="ts-btn-svg">
+            <circle cx="32" cy="32" r="30" stroke="currentColor" stroke-width="2.5"/>
+            <rect x="24" y="24" width="16" height="16" fill="currentColor" opacity=".4"/>
+        </svg>`;
+}
+
+/* ════════════════════════════════════════════════════════════
+   GAME UI — ROUND RESULT
+════════════════════════════════════════════════════════════ */
+function renderRoundResult({ round, target, tied, winner, isPerfect, eliminated, results, scores, remaining }) {
+    const scoreMap = Object.fromEntries(scores.map(p => [p.name, p.score]));
+
+    const rows = results.map((p, i) => {
+        const isWin  = !tied && p.name === winner;
+        const isElim = p.name === eliminated;
+        const score  = scoreMap[p.name] ?? 0;
+        const isSelf = p.name === S.myName;
+        const color  = playerColor(p.name);
+
+        // +1/+2 SVG ikonu
+        const ptsIcon = isWin ? (isPerfect
+            ? `<span class="pts-badge" style="background:${color}20;color:${color}">
+                <svg viewBox="0 0 16 16" fill="none"><path d="M8 2l1.8 3.6L14 6.3l-3 2.9.7 4.1L8 11.4l-3.7 1.9.7-4.1-3-2.9 4.2-.7z" fill="currentColor"/></svg>+2
+               </span>`
+            : `<span class="pts-badge" style="background:${color}20;color:${color}">
+                <svg viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>+1
+               </span>`)
+            : "";
+
+        const leftBorder = isElim ? "var(--red)"
+            : isWin ? color
+            : tied && i === 0 ? "var(--yellow)"
+            : "rgba(255,255,255,.07)";
+
+        // Kendini vurgula: soluk player rengi arka plan + hafif outline
+        const selfStyle = isSelf
+            ? `background:${color}10; outline: 1px solid ${color}30; outline-offset:-1px;`
+            : "";
+
+        return `
+        <div class="ts-result-row"
+             style="border-left: 3px solid ${leftBorder}; opacity:${isElim?.5:1}; ${selfStyle}">
+            <div class="ts-rr-player">
+                <span class="ts-rr-dot" style="background:${color}; box-shadow:0 0 6px ${color}80"></span>
+                <span class="ts-rr-name" style="color:${color}; font-weight:${isSelf?800:600}">
+                    ${p.name}${isElim?" ⚡":""}
+                </span>
+            </div>
+            <span class="ts-rr-time" style="color:${color}">${p.time.toFixed(2)}s</span>
+            <span class="ts-rr-diff">${diffLabel(p.diff)}</span>
+            <div class="ts-rr-score">${dotsHtmlColored(score, S.winScore, color)}</div>
+            ${ptsIcon}
+        </div>`;
+    }).join("");
+
+    const tieNote     = tied ? `<div class="ts-tie-note">Bərabərlik — xal verilmədi</div>` : "";
+    const elimNote    = eliminated ? `<div class="ts-elim-note" style="border-color:var(--red)">⚡ ${eliminated} VURULDU</div>` : "";
+    const perfectNote = isPerfect && !tied ? `<div class="ts-perfect-note">⭐ PERFECT +2 XAL!</div>` : "";
+    const isSolo      = S.players.length === 1;
+
+    timestopView.innerHTML = `
+        <div class="ts-wrap">
+            <span class="ts-eyebrow">TUR ${round} — NƏTİCƏ</span>
+            <div class="ts-target-box">
+                <span class="ts-target-label">HƏDƏF VAXT</span>
+                <div class="ts-target-time">${target.toFixed(2)}<span class="ts-unit">s</span></div>
+            </div>
+            ${perfectNote}${tieNote}${elimNote}
+            <div class="ts-results-list">${rows}</div>
+            ${isSolo
+                ? `<button class="ts-next-btn" id="tsNextBtn">NÖVBƏTİ TUR →</button>
+                   <button class="ts-back-btn2" id="tsExitSolo">ÇIXIŞ</button>`
+                : (S.isHost
+                    ? `<button class="ts-next-btn" id="tsNextBtn">NÖVBƏTİ TUR →</button>`
+                    : `<div class="ts-wait-note">// Host növbəti turu başladacaq...</div>`)
+            }
+        </div>`;
+
+    $("tsNextBtn")?.addEventListener("click", () => {
+        if (isSolo) startSoloRound();
+        else socket.emit("game:next_round", { code: S.roomCode });
+    });
+    $("tsExitSolo")?.addEventListener("click", () => {
+        S.running = false;
+        timestopView.classList.add("hidden");
+        lobbyView.classList.remove("hidden");
+    });
+}
+
+/* ════════════════════════════════════════════════════════════
+   GAME UI — FINAL
+════════════════════════════════════════════════════════════ */
+function renderFinal({ champion, finalScores }) {
+    const podium = finalScores.map((p, i) => {
+        const isSelf  = p.name === S.myName;
+        const color   = playerColor(p.name);
+        const isChamp = i === 0;
+        return `
+        <div class="ts-podium-row" style="border-left: 3px solid ${color}">
+            <span class="ts-pod-rank" style="color:${color}">${isChamp ? "👑" : "#"+(i+1)}</span>
+            <div style="display:flex;align-items:center;gap:8px">
+                <span class="ts-rr-dot" style="background:${color}"></span>
+                <span class="ts-pod-name" style="${isSelf?`color:${color};font-weight:800`:""}">${p.name}${isSelf?" ◀":""}</span>
+            </div>
+            <div class="ts-pod-dots">${dotsHtmlColored(p.score, S.winScore, color)}</div>
+            <span class="ts-pod-diff" style="color:${color}">${p.score} XAL</span>
+        </div>`;
+    }).join("");
+
+    const isSelf      = champion === S.myName;
+    const champColor  = playerColor(champion);
+    const winnerClass = isSelf ? "ts-winner-box ts-winner-self" : "ts-winner-box";
+
+    timestopView.innerHTML = `
+        <div class="ts-wrap ts-final-wrap">
+            <span class="ts-eyebrow">TIME STOP — OYUN BİTDİ</span>
+            <div class="${winnerClass}" style="border-color:${champColor}40;background:${champColor}08">
+                <div class="ts-winner-crown">${isSelf ? "👑" : "🏆"}</div>
+                <div class="ts-winner-name" style="color:${champColor}">${champion}</div>
+                <div class="ts-winner-sub" style="color:${champColor}aa">${isSelf ? "SƏN QAZANDIN!" : "QALİB"}</div>
+            </div>
+            <div class="ts-results-list" style="margin-top:24px">${podium}</div>
+            <div class="ts-final-actions">
+                ${S.isHost
+                    ? `<button class="ts-next-btn" id="tsPlayAgain">YENİDƏN OYNA</button>`
+                    : `<div class="ts-wait-note">// Host yenidən başladacaq...</div>`}
+                <button class="ts-back-btn2" id="tsGoLobby">LOBBYƏ QAYIT</button>
+            </div>
+        </div>`;
+
+    $("tsPlayAgain")?.addEventListener("click", () => socket.emit("room:start", { code: S.roomCode }));
+    $("tsGoLobby")?.addEventListener("click", () => {
+        timestopView.classList.add("hidden");
+        lobbyView.classList.remove("hidden");
+        waitingScreen.classList.remove("hidden");
+        joinScreen.classList.add("hidden");
+    });
+}
+
+function renderAborted(reason) {
+    timestopView.innerHTML = `
+        <div class="ts-wrap" style="margin-top:100px">
+            <span class="ts-eyebrow">OYUN DAYANDI</span>
+            <div class="ts-tie-note" style="padding:20px;font-size:10px">${reason}</div>
+            <button class="ts-next-btn" id="tsBack">LOBBYƏ QAYIT</button>
+        </div>`;
+    $("tsBack").addEventListener("click", () => {
+        timestopView.classList.add("hidden");
+        lobbyView.classList.remove("hidden");
+        waitingScreen.classList.remove("hidden");
+        joinScreen.classList.add("hidden");
+    });
+}
+
+function renderLastStanding(name, reason) {
+    timestopView.innerHTML = `
+        <div class="ts-wrap" style="margin-top:80px">
+            <span class="ts-eyebrow">OYUN BİTDİ</span>
+            <div class="ts-winner-box ${name===S.myName?"ts-winner-self":""}">
+                <div class="ts-winner-crown">👑</div>
+                <div class="ts-winner-name">${name}</div>
+                <div class="ts-winner-sub">SON QALAN — QALİB</div>
+            </div>
+            <div class="ts-tie-note" style="margin-top:16px;font-size:9px">${reason}</div>
+            <button class="ts-next-btn" id="tsBack" style="margin-top:16px">LOBBYƏ QAYIT</button>
+        </div>`;
+    $("tsBack").addEventListener("click", () => {
+        timestopView.classList.add("hidden");
+        lobbyView.classList.remove("hidden");
+        waitingScreen.classList.remove("hidden");
+        joinScreen.classList.add("hidden");
+    });
+}
+
+/* ════════════════════════════════════════════════════════════
+   SOLO MODE (offline antrenman)
+════════════════════════════════════════════════════════════ */
+let soloState = { round: 0, score: 0, winScore: 3 };
+
+function startSoloMode() {
+    soloState = { round: 0, score: 0, winScore: S.winScore || 3 };
+    S.players  = [{ name: S.myName || "Player", score: 0 }];
+    S.winScore = soloState.winScore;
+    S.isHost   = true;
+    lobbyView.classList.add("hidden");
+    timestopView.classList.remove("hidden");
+    startSoloRound();
+}
+
+function startSoloRound() {
+    soloState.round += 1;
+    S.round   = soloState.round;
+    S.target  = parseFloat((2 + Math.random() * 7.99).toFixed(2));
+    S.running = false;
+    S.elapsed = 0;
+    S.players[0].score = soloState.score;
+
+    renderRound();
+
+    // Override stop — solo'da socket yok
+    const selfBtn = document.querySelector(".ts-btn-self");
+    if (selfBtn) {
+        selfBtn.replaceWith(selfBtn.cloneNode(true)); // listener'ı temizle
+        document.querySelector(".ts-btn-self")
+            .addEventListener("click", () => soloStop());
+    }
+
+    S.keyHandler = e => {
+        if ((e.code === "Space" || e.code === "Enter") && S.running) {
+            e.preventDefault();
+            soloStop();
+        }
+    };
+    document.addEventListener("keydown", S.keyHandler);
+
+    S.startTime = performance.now();
+    S.running   = true;
+
+    (function loop(now) {
+        if (!S.running) return;
+        S.elapsed = (now - S.startTime) / 1000;
+        S.rafId   = requestAnimationFrame(loop);
+    })(performance.now());
+}
+
+function soloStop() {
+    if (!S.running) return;
+    S.running = false;
+    document.removeEventListener("keydown", S.keyHandler);
+
+    const elapsed = (performance.now() - S.startTime) / 1000;
+    const diff    = Math.abs(elapsed - S.target);
+    const perfect = diff < 0.05;
+    const pts     = perfect ? 2 : 1;
+    soloState.score += pts;
+    S.players[0].score = soloState.score;
+
+    const btn = document.querySelector(".ts-btn-self");
+    if (btn) { btn.disabled=true; btn.classList.add("ts-stopped"); btn.innerHTML=stopSvg("check"); }
+    const res = document.querySelector(`.ts-seat-result[data-res="${S.myName}"]`);
+    if (res) { res.textContent=elapsed.toFixed(2)+"s"; res.classList.remove("hidden"); }
+
+    setTimeout(() => {
+        const isChamp = soloState.score >= soloState.winScore;
+        if (isChamp) {
+            renderFinal({ champion: S.myName, finalScores: [{ name: S.myName, score: soloState.score }] });
+        } else {
+            renderRoundResult({
+                round:      S.round,
+                target:     S.target,
+                tied:       false,
+                winner:     S.myName,
+                isPerfect:  perfect,
+                eliminated: null,
+                results:    [{ name: S.myName, time: elapsed, diff, isPerfect: perfect }],
+                scores:     [{ name: S.myName, score: soloState.score }],
+                remaining:  [],
+            });
+            // Next button → startSoloRound zaten bağlı
+        }
+    }, 700);
+}
+
+/* ════════════════════════════════════════════════════════════
+   SOLO BUTTON (waiting screen — offline)
+   soloBtn socket event değil, direkt solo modu başlatır
+   sadece tek kişi varsa gösterilir
+════════════════════════════════════════════════════════════ */
+soloBtn.addEventListener("click", () => {
+    // Sunucuya solo gönder; sunucu yoksa offline solo başlat
+    if (socket.connected) {
+        socket.emit("room:solo", { code: S.roomCode });
+    } else {
+        startSoloMode();
+    }
+}, { once: false });
+
+/* ════════════════════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════════════════════ */
+loadSavedName();
+lucide.createIcons();
+chatPanel.classList.add("hidden-chat"); // başta gizli — odaya girince açılır
+</script>
+</body>
+</html>
