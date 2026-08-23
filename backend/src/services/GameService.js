@@ -148,14 +148,16 @@ class GameService {
         if (room.state === ROOM_STATE.RESULT) {
           console.log(`[Game] Auto return to lobby | ${room.code}`);
           room.setState(ROOM_STATE.WAITING);
-          // Reset game state
+          // Reset game state (ayrılanları temizle)
+          const leftPlayers = room.getPlayerList().filter(p => p.hasLeft);
+          leftPlayers.forEach(p => room.removePlayer(p.socketId));
+          
           room.round = 0;
           room.getPlayerList().forEach(p => {
             p.score = 0;
             p.isReady = false;
             p.isEliminated = false;
             p.elimRound = null;
-            p.hasLeft = false;
             p.readyForNext = false;
           });
           room.activePlayers = Array.from(room.players.keys()).filter(id => {
@@ -163,6 +165,7 @@ class GameService {
             return p && !p.hasLeft;
           });
           this._emit(room.code, "game:return_to_lobby");
+          this._emit(room.code, "room:updated", { room: room.toPublic() });
         }
       }, autoDelay);
       this._nextRoundTimers.set(room.code, autoTimer);
@@ -261,6 +264,10 @@ class GameService {
       clearTimeout(timer);
       this._nextRoundTimers.delete(room.code);
     }
+    
+    // Ayrılanları temizle
+    const leftPlayers = room.getPlayerList().filter(p => p.hasLeft);
+    leftPlayers.forEach(p => room.removePlayer(p.socketId));
     
     // Game state reset
     room.setState(ROOM_STATE.WAITING);
