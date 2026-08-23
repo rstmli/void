@@ -365,14 +365,15 @@ function dotsHtmlColored(score, max, color) {
  */
 function calcSeatPositions(total, myIndex, radius) {
     const positions = [];
-    const startAngle = 270; // ben her zaman alt (270°)
+    // CSS koordinat sistemi: Y aşağıya büyür
+    // Ben altta olacaksam startAngle = 90° (sin(90°)=1 → y pozitif → aşağı)
+    const startAngle = 90;
     for (let i = 0; i < total; i++) {
         const angle = (startAngle + (360 / total) * i) % 360;
         const rad   = (angle * Math.PI) / 180;
-        // Koltuklar masanın kenarından biraz boşluk bırakacak şekilde
-        // X ekseni için radius'u biraz daha dar tut (yatay daha geniş ekran)
-        const rx = radius * 0.88; // yatay daha dar
-        const ry = radius * 0.78; // dikey daha dar (header var)
+        // Eliptik — yatayda biraz daha geniş
+        const rx = radius * 0.90;
+        const ry = radius * 0.75;
         const x  = Math.cos(rad) * rx;
         const y  = Math.sin(rad) * ry;
         positions.push({ x, y, angle });
@@ -834,7 +835,7 @@ function renderCountdown(count) {
             : S.players;
 
         const activeReord = reord.filter(p => !p.isEliminated);
-        const radius = 42; // % cinsinden — sahnenin merkezinden
+        const radius = 36;
         const positions = calcSeatPositions(activeReord.length, 0, radius);
 
         const seats = activeReord.map((p, i) => {
@@ -890,7 +891,7 @@ function renderRound() {
     const isSolo = activeReordered.length === 1;
 
     // Daire çevresine eşit aralıklı yerleşim
-    const radius    = 40;
+    const radius    = 36;
     const positions = calcSeatPositions(activeReordered.length, 0, radius);
 
     const seats = activeReordered.map((p, i) => {
