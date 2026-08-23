@@ -69,7 +69,7 @@ class SocketHandler {
       if (room.playerCount < minPlayers)
         return socket.emit("error", { message: `Ən az ${minPlayers} oyunçu lazımdır` });
 
-      const notReady = room.getPlayerList().filter(p => !p.isHost && !p.isReady);
+      const notReady = room.getPlayerList().filter(p => !p.isHost && !p.isReady && !p.hasLeft);
       if (notReady.length > 0) {
         const names = notReady.map(p => p.name).join(", ");
         this.io.to(room.code).emit("chat:system", {
@@ -79,8 +79,12 @@ class SocketHandler {
         return socket.emit("error", { message: `${notReady.length} oyunçu hazır deyil` });
       }
 
-      // Yeniden başlatma reset
+      // Yeniden başlatma reset — ayrılanları temizle
       if (room.state === ROOM_STATE.FINISHED) {
+        // Ayrılanları odadan tamamen çıkar
+        const leftPlayers = room.getPlayerList().filter(p => p.hasLeft);
+        leftPlayers.forEach(p => room.removePlayer(p.socketId));
+        
         room.setState(ROOM_STATE.WAITING);
         room.round = 0;
         room.getPlayerList().forEach(p => {
@@ -88,6 +92,7 @@ class SocketHandler {
           p.isReady      = false;
           p.isEliminated = false;
           p.elimRound    = null;
+          p.hasLeft      = false;
         });
         room.activePlayers = Array.from(room.players.keys());
       }
@@ -101,9 +106,18 @@ class SocketHandler {
       const player = room.getPlayer(socket.id);
       if (!player?.isHost) return;
       if (room.state === ROOM_STATE.FINISHED) {
+        // Ayrılanları temizle
+        const leftPlayers = room.getPlayerList().filter(p => p.hasLeft);
+        leftPlayers.forEach(p => room.removePlayer(p.socketId));
+        
         room.setState(ROOM_STATE.WAITING);
         room.round = 0;
-        room.getPlayerList().forEach(p => { p.score = 0; p.isEliminated = false; p.elimRound = null; });
+        room.getPlayerList().forEach(p => { 
+          p.score = 0; 
+          p.isEliminated = false; 
+          p.elimRound = null;
+          p.hasLeft = false;
+        });
         room.activePlayers = Array.from(room.players.keys());
       }
       this.gameService.startCountdown(room);

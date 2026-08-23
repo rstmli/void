@@ -891,7 +891,8 @@ function renderRound() {
         ? [S.players[myIndex], ...S.players.filter(p => p.name !== S.myName)]
         : S.players;
 
-    const activeReordered = reordered.filter(p => !p.isEliminated);
+    // Ayrılanları ve elenenları filtrele
+    const activeReordered = reordered.filter(p => !p.isEliminated && !p.hasLeft);
     const isSolo = activeReordered.length === 1;
 
     // Daire çevresine eşit aralıklı yerleşim
@@ -1169,7 +1170,13 @@ function renderRoundResult({ round, target, tied, winner, isPerfect, eliminated,
    GAME UI — FINAL
 ════════════════════════════════════════════════════════════ */
 function renderFinal({ champion, finalScores }) {
-    const podium = finalScores.map((p, i) => {
+    // Ayrılanları filtrele
+    const activeScores = finalScores.filter(p => {
+        const player = S.players.find(pl => pl.name === p.name);
+        return !player?.hasLeft;
+    });
+    
+    const podium = activeScores.map((p, i) => {
         const isSelf  = p.name === S.myName;
         const color   = playerColor(p.name);
         const isChamp = i === 0;
