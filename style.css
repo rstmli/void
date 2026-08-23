@@ -271,6 +271,37 @@ input {
     border-left: 3px solid var(--red);
 }
 
+.waiting-header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.settings-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,255,255,.12);
+    color: var(--muted);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: all .2s;
+}
+
+.settings-btn:hover {
+    background: rgba(255,255,255,.08);
+    border-color: rgba(255,255,255,.2);
+    color: #fff;
+    transform: rotate(45deg);
+}
+
+.settings-btn i {
+    width: 22px;
+    height: 22px;
+}
+
 .party-code span {
     display: block;
     color: var(--muted);
@@ -590,6 +621,59 @@ input {
     font-size: 15px;
     font-weight: 700;
     color: var(--yellow);
+}
+
+/* ══════════════════════════════════════
+   SOLO TRAINING RESULT
+══════════════════════════════════════ */
+.solo-result-card {
+    background: rgba(255,255,255,.03);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 16px;
+    padding: 24px;
+    margin-top: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.solo-result-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+}
+
+.solo-result-row:last-child {
+    border-bottom: none;
+}
+
+.solo-result-label {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 600;
+}
+
+.solo-result-value {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -.5px;
+}
+
+.solo-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.solo-actions .ts-next-btn {
+    flex: 1;
+}
+
+.solo-actions .ts-back-btn2 {
+    flex: 0 0 auto;
 }
 
 /* ══════════════════════════════════════

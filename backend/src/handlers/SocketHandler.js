@@ -140,12 +140,14 @@ class SocketHandler {
   }
 
   _registerGameEvents(socket) {
-    socket.on("game:stop", ({ code, stoppedAt }) => {
+    socket.on("game:stop", ({ code }) => {
       const room = roomService.findRoom(code);
       if (!room) return;
       const player = room.getPlayer(socket.id);
       if (!player) return;
-      this.gameService.playerStop(room, player, stoppedAt);
+      
+      // SERVER-SIDE TIME CALCULATION - Client manipülasyonunu engelle
+      this.gameService.playerStop(room, player);
     });
 
     socket.on("game:next_round", ({ code }) => {

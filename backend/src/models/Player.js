@@ -17,6 +17,10 @@ class Player {
     this.currentDiff = 0;
     this.hasStopped  = false;
     this.isPerfect   = false;
+    
+    // ANTI-CHEAT: Perfect spam detection
+    this.perfectCount = 0;      // Arka arkaya perfect sayısı
+    this.lastStopTime = 0;      // Son stop zamanı (spam detection)
   }
 
   addPoints(n = 1) { this.score += n; }
@@ -26,6 +30,14 @@ class Player {
     this.currentTime = stoppedAt;
     this.currentDiff = Math.abs(stoppedAt - target);
     this.isPerfect   = this.currentDiff <= perfectThreshold;
+    this.lastStopTime = Date.now();
+    
+    // ANTI-CHEAT: Perfect counter
+    if (this.isPerfect) {
+      this.perfectCount++;
+    } else {
+      this.perfectCount = 0; // Reset
+    }
   }
 
   resetForRound() {

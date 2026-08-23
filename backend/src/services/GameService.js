@@ -7,6 +7,7 @@ class GameService {
     this._countdownTimers = new Map();
     this._afkTimers       = new Map();
     this._nextRoundTimers = new Map(); // auto next round timer
+    this._roundStartTimes = new Map(); // Anti-cheat: round başlangıç zamanları
   }
 
   startCountdown(room) {
@@ -36,6 +37,9 @@ class GameService {
     
     room.prepareRound();
     room.setState(ROOM_STATE.PLAYING);
+    
+    // ANTI-CHEAT: Round başlangıç zamanını kaydet
+    this._roundStartTimes.set(room.code, Date.now());
 
     this._emit(room.code, "game:round_start", {
       round:    room.round,
@@ -79,13 +83,48 @@ class GameService {
     this._afkTimers.set(room.code, afkTimer);
   }
 
-  playerStop(room, player, stoppedAt) {
+  playerStop(room, player) {
     if (room.state !== ROOM_STATE.PLAYING) return;
     if (player.hasStopped) return;
 
-    player.stop(stoppedAt, room.target, GAME.PERFECT_THRESHOLD);
-    this._emit(room.code, "game:player_stopped", { name: player.name });
-    console.log(`[Game] ${player.name} durdu: ${stoppedAt.toFixed(3)}s | fark: ${player.currentDiff.toFixed(3)}s`);
+    // ANTI-CHEAT: Server kendi hesaplar
+    const roundStartTime = this._roundStartTimes.get(room.code);
+    if (!roundStartTime) {
+      console.warn(`[Anti-Cheat] Round start time bulunamadı: ${room.code}`);
+      return;
+    }
+    
+    const serverElapsed = (Date.now() - roundStartTime) / 1000;
+    
+    // Sanity check 1: Çok erken (0.05s'den önce) veya çok geç (target+15s'den sonra)
+    if (serverElapsed < 0.05) {
+      console.warn(`[Anti-Cheat] Şüpheli erken stop: ${player.name} - ${serverElapsed.toFixed(3)}s`);
+      return; // Hile girişimi, ignore et
+    }
+    
+    if (serverElapsed > room.target + 15) {
+      console.warn(`[Anti-Cheat] Çok geç stop: ${player.name} - ${serverElapsed.toFixed(3)}s`);
+      return;
+    }
+    
+    // Sanity check 2: Spam detection (aynı oyuncu 100ms içinde tekrar basamaz)
+    const timeSinceLastStop = Date.now() - player.lastStopTime;
+    if (player.lastStopTime > 0 && timeSinceLastStop < 100) {
+      console.warn(`[Anti-Cheat] Spam stop: ${player.name} - ${timeSinceLastStop}ms`);
+      return;
+    }
+
+    player.stop(serverElapsed, room.target, GAME.PERFECT_THRESHOLD);
+    
+    // ANTI-CHEAT: Perfect spam kontrolü (5+ arka arkaya perfect = şüpheli)
+    if (player.perfectCount >= 5) {
+      console.warn(`[Anti-Cheat] Şüpheli perfect spam: ${player.name} - ${player.perfectCount} arka arkaya perfect`);
+      // İsteğe bağlı: Otomatik ban veya puan vermeme
+      // player.score = Math.max(0, player.score - 2); // Ceza
+    }
+    
+    this._emit(room.code, "game:player_stopped", { name: player.name, time: serverElapsed });
+    console.log(`[Game] ${player.name} durdu: ${serverElapsed.toFixed(3)}s | fark: ${player.currentDiff.toFixed(3)}s`);
 
     if (room.allActiveStopped()) this._endRound(room);
   }
@@ -94,6 +133,9 @@ class GameService {
     // AFK timer temizle
     const afk = this._afkTimers.get(room.code);
     if (afk) { clearTimeout(afk); this._afkTimers.delete(room.code); }
+    
+    // Anti-cheat: Round start time temizle
+    this._roundStartTimes.delete(room.code);
 
     room.setState(ROOM_STATE.RESULT);
 
