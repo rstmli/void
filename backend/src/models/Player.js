@@ -11,6 +11,7 @@ class Player {
     this.elimRound    = null;
     this.color        = null;   // hex renk — frontend tarafından atanır
     this.readyForNext = false;  // round result-da next tura hazır mı
+    this.inLobby      = true;   // lobby-də mi, yoxsa result screen-də mi
 
     this.currentTime = 0;
     this.currentDiff = 0;
@@ -48,6 +49,7 @@ class Player {
       elimRound:    this.elimRound,
       color:        this.color,
       readyForNext: this.readyForNext,
+      inLobby:      this.inLobby,
     };
   }
 

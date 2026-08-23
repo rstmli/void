@@ -1857,6 +1857,27 @@ input {
     opacity: .25;
 }
 
+.pp-waiting-lobby {
+    opacity: .6;
+}
+
+.pp-waiting-lobby .pp-avatar {
+    filter: blur(1px);
+}
+
+.pp-spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255,255,255,.15);
+    border-top-color: var(--cyan);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
 .pp-avatar {
     width: 34px; height: 34px;
     border-radius: 8px;

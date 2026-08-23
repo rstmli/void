@@ -143,6 +143,25 @@ class SocketHandler {
       this.gameService.playerReadyForNext(room, player);
     });
     
+    socket.on("player:returned_lobby", ({ code }) => {
+      const room = roomService.findRoom(code);
+      if (!room) return;
+      const player = room.getPlayer(socket.id);
+      if (!player) return;
+      
+      // Oyuncu lobby-ə döndü
+      player.inLobby = true;
+      
+      // Diğər oyunculara bildir
+      this.io.to(room.code).emit("room:updated", { room: room.toPublic() });
+      
+      // Hər kəs dönərsə auto reset
+      const allInLobby = room.getPlayerList().filter(p => !p.hasLeft).every(p => p.inLobby);
+      if (allInLobby && room.state === ROOM_STATE.RESULT) {
+        this.gameService.resetToLobby(room);
+      }
+    });
+    
     socket.on("game:return_lobby", ({ code }) => {
       const room = roomService.findRoom(code);
       if (!room) return;

@@ -480,8 +480,9 @@ function updateWaiting(room) {
         const isSelf  = p.name === S.myName;
         const color   = p.color || PLAYER_COLORS[i % PLAYER_COLORS.length];
         const isReady = p.isHost || p.isReady;
+        const inLobby = p.inLobby !== false; // undefined olsa da true say
         return `
-        <div class="pp-player ${isSelf ? "pp-self" : ""} ${isReady ? "pp-ready" : ""}">
+        <div class="pp-player ${isSelf ? "pp-self" : ""} ${isReady ? "pp-ready" : ""} ${!inLobby ? "pp-waiting-lobby" : ""}">
             <div class="pp-avatar" style="background:${color}20; border-color:${color}40; color:${color}">
                 ${p.name.charAt(0).toUpperCase()}
             </div>
@@ -495,9 +496,11 @@ function updateWaiting(room) {
             </div>
             <div class="pp-color-dot" style="background:${color};box-shadow:0 0 8px ${color}60"></div>
             <div class="pp-status ${isReady ? "pp-status-ready" : ""}">
-                ${isReady
-                    ? `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-6" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
-                    : `<span class="pp-dot"></span>`
+                ${!inLobby 
+                    ? `<div class="pp-spinner"></div>` 
+                    : isReady
+                        ? `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-6" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+                        : `<span class="pp-dot"></span>`
                 }
             </div>
         </div>`;
@@ -1216,12 +1219,11 @@ function renderRoundResult({ round, target, tied, winner, isPerfect, eliminated,
     const iAmReady = myPlayerData?.readyForNext || false;
 
     if (isGameOver) {
-        // Oyun bitti — final scoreboard + lobby-ə dön
-        const champColor = playerColor(champion);
+        // Oyun bitti — final scoreboard sadə
         timestopView.innerHTML = `
             <div class="ts-wrap">
-                <span class="ts-eyebrow">🎉 OYUN BİTDİ — ${champion.toUpperCase()} QAZANDI!</span>
-                <div class="ts-target-box" style="border-color:${champColor}40">
+                <span class="ts-eyebrow">TUR ${round} — OYUN BİTDİ</span>
+                <div class="ts-target-box">
                     <span class="ts-target-label">SON TUR HƏDƏF</span>
                     <div class="ts-target-time">${target.toFixed(2)}<span class="ts-unit">s</span></div>
                 </div>
@@ -1235,7 +1237,14 @@ function renderRoundResult({ round, target, tied, winner, isPerfect, eliminated,
             </div>`;
         
         $("tsGoLobby")?.addEventListener("click", () => {
-            socket.emit("game:return_lobby", { code: S.roomCode });
+            // Yalnız özüm dönürəm
+            timestopView.classList.add("hidden");
+            lobbyView.classList.remove("hidden");
+            waitingScreen.classList.remove("hidden");
+            joinScreen.classList.add("hidden");
+            
+            // Server-a bildir
+            socket.emit("player:returned_lobby", { code: S.roomCode });
         });
         
         // Progress bar animation

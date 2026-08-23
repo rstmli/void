@@ -31,6 +31,9 @@ class GameService {
   }
 
   _startRound(room) {
+    // İnLobby flag-ı false et - oyun başladı
+    room.getPlayerList().forEach(p => { p.inLobby = false; });
+    
     room.prepareRound();
     room.setState(ROOM_STATE.PLAYING);
 
@@ -147,25 +150,7 @@ class GameService {
       const autoTimer = setTimeout(() => {
         if (room.state === ROOM_STATE.RESULT) {
           console.log(`[Game] Auto return to lobby | ${room.code}`);
-          room.setState(ROOM_STATE.WAITING);
-          // Reset game state (ayrılanları temizle)
-          const leftPlayers = room.getPlayerList().filter(p => p.hasLeft);
-          leftPlayers.forEach(p => room.removePlayer(p.socketId));
-          
-          room.round = 0;
-          room.getPlayerList().forEach(p => {
-            p.score = 0;
-            p.isReady = false;
-            p.isEliminated = false;
-            p.elimRound = null;
-            p.readyForNext = false;
-          });
-          room.activePlayers = Array.from(room.players.keys()).filter(id => {
-            const p = room.players.get(id);
-            return p && !p.hasLeft;
-          });
-          this._emit(room.code, "game:return_to_lobby");
-          this._emit(room.code, "room:updated", { room: room.toPublic() });
+          this.resetToLobby(room);
         }
       }, autoDelay);
       this._nextRoundTimers.set(room.code, autoTimer);
@@ -176,10 +161,10 @@ class GameService {
       const last = room.getActivePlayerList()[0];
       if (last && !last.hasLeft) {
         const autoDelay = 7000 + Math.random() * 2000;
-        setTimeout(() => {
-          room.setState(ROOM_STATE.WAITING);
-          this._emit(room.code, "game:return_to_lobby");
+        const autoTimer = setTimeout(() => {
+          this.resetToLobby(room);
         }, autoDelay);
+        this._nextRoundTimers.set(room.code, autoTimer);
       }
       return;
     }
@@ -265,6 +250,10 @@ class GameService {
       this._nextRoundTimers.delete(room.code);
     }
     
+    this.resetToLobby(room);
+  }
+  
+  resetToLobby(room) {
     // Ayrılanları temizle
     const leftPlayers = room.getPlayerList().filter(p => p.hasLeft);
     leftPlayers.forEach(p => room.removePlayer(p.socketId));
@@ -278,6 +267,7 @@ class GameService {
       p.isEliminated = false;
       p.elimRound = null;
       p.readyForNext = false;
+      p.inLobby = true;
     });
     room.activePlayers = Array.from(room.players.keys()).filter(id => {
       const p = room.players.get(id);
