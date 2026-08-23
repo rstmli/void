@@ -43,6 +43,12 @@ class SocketHandler {
       this.io.to(room.code).emit("room:updated", { room: room.toPublic() });
     });
 
+    socket.on("player:color", ({ color }) => {
+      const result = roomService.updatePlayerColor(socket.id, color);
+      if (!result.success) return socket.emit("error", { message: result.error });
+      this.io.to(result.room.code).emit("room:updated", { room: result.room.toPublic() });
+    });
+
     socket.on("room:settings", (settings) => {
       const result = roomService.updateSettings(socket.id, settings);
       if (!result.success) return socket.emit("error", { message: result.error });

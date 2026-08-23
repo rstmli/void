@@ -7,7 +7,8 @@ class Player {
     this.isHost       = false;
     this.isEliminated = false;
     this.connected    = true;
-    this.elimRound    = null;   // kaçıncı turda elendi
+    this.elimRound    = null;
+    this.color        = null;   // hex renk — frontend tarafından atanır
 
     this.currentTime = 0;
     this.currentDiff = 0;
@@ -41,6 +42,7 @@ class Player {
       connected:    this.connected,
       isEliminated: this.isEliminated,
       elimRound:    this.elimRound,
+      color:        this.color,
     };
   }
 

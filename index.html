@@ -203,15 +203,35 @@ function playStopSound() {
     stopSound.play().catch(() => {}); // autoplay policy hatasını sessizce yut
 }
 
-// Oyuncu renkleri — index sırasına göre
-// 0=yeşil(host)  1=mavi  2=turuncu  3=kırmızı
-const PLAYER_COLORS = ["#00e87a", "#3b9eff", "#ff8c00", "#ff3344"];
+// 13 benzersiz oyuncu rengi — koyu arka plana uygun, birbirinden tamamen farklı tonlar
+const PLAYER_COLORS = [
+    "#00e87a",  // 0  parlak yeşil
+    "#3b9eff",  // 1  mavi
+    "#ff8c00",  // 2  turuncu
+    "#ff3344",  // 3  kırmızı
+    "#e040fb",  // 4  mor
+    "#00d4ff",  // 5  cyan
+    "#ffd700",  // 6  altın sarısı
+    "#ff6eb4",  // 7  pembe
+    "#7fff00",  // 8  lime yeşil
+    "#ff4500",  // 9  kızıl turuncu
+    "#40e0d0",  // 10 turkuaz
+    "#bf5fff",  // 11 lavanta
+    "#ff9a3c",  // 12 amber
+];
 
-/** Oyuncunun global sırasına göre renk döner */
+/** Odada kullanılmayan ilk rengi döner */
+function getAvailableColor(usedColors) {
+    return PLAYER_COLORS.find(c => !usedColors.includes(c)) ?? PLAYER_COLORS[0];
+}
+
+/** Oyuncunun rengini döner — önce server'dan gelen color, yoksa index bazlı */
 function playerColor(nameOrIndex) {
-    if (typeof nameOrIndex === "number") return PLAYER_COLORS[nameOrIndex] ?? PLAYER_COLORS[0];
-    const idx = S.players.findIndex(p => p.name === nameOrIndex);
-    return PLAYER_COLORS[idx >= 0 ? idx : 0];
+    if (typeof nameOrIndex === "number") return PLAYER_COLORS[nameOrIndex % PLAYER_COLORS.length];
+    const p = S.players.find(x => x.name === nameOrIndex);
+    if (p?.color) return p.color;
+    const idx = S.players.findIndex(x => x.name === nameOrIndex);
+    return PLAYER_COLORS[idx >= 0 ? idx % PLAYER_COLORS.length : 0];
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -340,18 +360,21 @@ function dotsHtmlColored(score, max, color) {
  * Kendim her zaman alta (270°) yerleşir, diğerleri eşit aralıklarla.
  * @param {number} total   — toplam aktif oyuncu sayısı
  * @param {number} myIndex — kendi sıram (0 = alta)
- * @param {number} radius  — daireden uzaklık (px)
+ * @param {number} radius  — daireden uzaklık (%)
  * returns { x, y, angle }[]
  */
 function calcSeatPositions(total, myIndex, radius) {
     const positions = [];
     const startAngle = 270; // ben her zaman alt (270°)
     for (let i = 0; i < total; i++) {
-        // myIndex=0 → 270°, diğerleri eşit aralıkla
         const angle = (startAngle + (360 / total) * i) % 360;
         const rad   = (angle * Math.PI) / 180;
-        const x     = Math.cos(rad) * radius; // merkeze göre
-        const y     = Math.sin(rad) * radius;
+        // Koltuklar masanın kenarından biraz boşluk bırakacak şekilde
+        // X ekseni için radius'u biraz daha dar tut (yatay daha geniş ekran)
+        const rx = radius * 0.88; // yatay daha dar
+        const ry = radius * 0.78; // dikey daha dar (header var)
+        const x  = Math.cos(rad) * rx;
+        const y  = Math.sin(rad) * ry;
         positions.push({ x, y, angle });
     }
     return positions;
@@ -378,7 +401,16 @@ function masaImg(count) {
 function showWaitingScreen(room) {
     S.roomCode = room.code;
     S.winScore = room.winScore;
+    S.gameMode = room.gameMode || "classic";
     S.isHost   = room.players.find(p => p.name === S.myName)?.isHost ?? false;
+
+    // Kendi rengim yoksa, odada kullanılmayan ilk rengi al ve sunucuya bildir
+    const myPlayer = room.players.find(p => p.name === S.myName);
+    if (!myPlayer?.color) {
+        const usedColors = room.players.filter(p => p.name !== S.myName).map(p => p.color).filter(Boolean);
+        const myColor = getAvailableColor(usedColors);
+        socket.emit("player:color", { color: myColor });
+    }
 
     saveName(S.myName);
     updateTopbar(S.myName);
@@ -389,9 +421,9 @@ function showWaitingScreen(room) {
     lobbyView.classList.remove("hidden");
     timestopView.classList.add("hidden");
 
-    // Host UI
     if (S.isHost) {
-        roomSettings.classList.remove("hidden");
+        $("modeSelectorWrap").classList.remove("hidden");
+        roomSettings.classList.toggle("hidden", S.gameMode !== "classic");
         startGameBtn.classList.remove("hidden");
         soloBtn.classList.remove("hidden");
         scoreValue.textContent = room.winScore;
@@ -437,11 +469,13 @@ function updateWaiting(room) {
         }
     }
 
+    const usedColors = room.players.map(p => p.color).filter(Boolean);
+
     // SAĞ PANEL — oyuncu listesi (kart değil, satır)
     const maxSlots = room.maxPlayers;
     playerGrid.innerHTML = room.players.map((p, i) => {
         const isSelf  = p.name === S.myName;
-        const color   = PLAYER_COLORS[i] ?? PLAYER_COLORS[3];
+        const color   = p.color || PLAYER_COLORS[i % PLAYER_COLORS.length];
         const isReady = p.isHost || p.isReady;
         return `
         <div class="pp-player ${isSelf ? "pp-self" : ""} ${isReady ? "pp-ready" : ""}">
@@ -449,9 +483,14 @@ function updateWaiting(room) {
                 ${p.name.charAt(0).toUpperCase()}
             </div>
             <div class="pp-info">
-                <span class="pp-name" style="${isSelf ? `color:${color}` : ""}">${p.name}</span>
+                <span class="pp-name ${isSelf ? "pp-name-clickable" : ""}"
+                      style="${isSelf ? `color:${color};cursor:pointer` : ""}"
+                      ${isSelf ? `onclick="openColorPicker(event)"` : ""}>
+                    ${p.name}${isSelf ? " ✎" : ""}
+                </span>
                 <span class="pp-tag">${p.isHost ? "HOST" : isSelf ? "SƏN" : "OYUNÇU"}</span>
             </div>
+            <div class="pp-color-dot" style="background:${color};box-shadow:0 0 8px ${color}60"></div>
             <div class="pp-status ${isReady ? "pp-status-ready" : ""}">
                 ${isReady
                     ? `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-6" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
@@ -493,6 +532,54 @@ function updateWaiting(room) {
    CHAT
 ════════════════════════════════════════════════════════════ */
 let chatOpen = true;
+
+/* ════════════════════════════════════════════════════════════
+   COLOR PICKER
+════════════════════════════════════════════════════════════ */
+function openColorPicker(e) {
+    e.stopPropagation();
+    // Varsa eski picker'ı kapat
+    document.getElementById("colorPickerPopup")?.remove();
+
+    const usedColors = S.players
+        .filter(p => p.name !== S.myName)
+        .map(p => p.color)
+        .filter(Boolean);
+
+    const myColor = S.players.find(p => p.name === S.myName)?.color || PLAYER_COLORS[0];
+
+    const swatches = PLAYER_COLORS.map(c => {
+        const inUse = usedColors.includes(c);
+        return `<button class="color-swatch ${inUse ? "color-swatch-used" : ""} ${c === myColor ? "color-swatch-active" : ""}"
+                        style="background:${c}" data-color="${c}"
+                        ${inUse ? "disabled title='İstifadə olunur'" : ""}></button>`;
+    }).join("");
+
+    const popup = document.createElement("div");
+    popup.id = "colorPickerPopup";
+    popup.className = "color-picker-popup";
+    popup.innerHTML = `
+        <div class="color-picker-label">RƏNGİNİ SEÇ</div>
+        <div class="color-swatches">${swatches}</div>`;
+
+    // Tıklanan elementin yanına yerleştir
+    const rect = e.target.getBoundingClientRect();
+    popup.style.top  = `${rect.bottom + 8}px`;
+    popup.style.left = `${rect.left}px`;
+    document.body.appendChild(popup);
+
+    popup.querySelectorAll(".color-swatch:not(:disabled)").forEach(btn => {
+        btn.addEventListener("click", () => {
+            socket.emit("player:color", { color: btn.dataset.color });
+            popup.remove();
+        });
+    });
+
+    // Dışarı tıklayınca kapat
+    setTimeout(() => {
+        document.addEventListener("click", () => popup.remove(), { once: true });
+    }, 10);
+}
 
 function appendChat(name, message, type = "normal") {
     const div = document.createElement("div");
@@ -992,8 +1079,9 @@ function stopSvg(type) {
 /* ════════════════════════════════════════════════════════════
    GAME UI — ROUND RESULT
 ════════════════════════════════════════════════════════════ */
-function renderRoundResult({ round, target, tied, winner, isPerfect, eliminated, results, scores, remaining }) {
-    const scoreMap = Object.fromEntries(scores.map(p => [p.name, p.score]));
+function renderRoundResult({ round, target, tied, winner, isPerfect, eliminated, results, scores, remaining, gameMode }) {
+    const scoreMap   = Object.fromEntries(scores.map(p => [p.name, p.score]));
+    const isElimMode = (gameMode || S.gameMode) === "elimination";
 
     const rows = results.map((p, i) => {
         const isWin  = !tied && p.name === winner;
@@ -1002,8 +1090,8 @@ function renderRoundResult({ round, target, tied, winner, isPerfect, eliminated,
         const isSelf = p.name === S.myName;
         const color  = playerColor(p.name);
 
-        // +1/+2 SVG ikonu
-        const ptsIcon = isWin ? (isPerfect
+        // Elimination modda puan/badge yok
+        const ptsIcon = (!isElimMode && isWin) ? (isPerfect
             ? `<span class="pts-badge" style="background:${color}20;color:${color}">
                 <svg viewBox="0 0 16 16" fill="none"><path d="M8 2l1.8 3.6L14 6.3l-3 2.9.7 4.1L8 11.4l-3.7 1.9.7-4.1-3-2.9 4.2-.7z" fill="currentColor"/></svg>+2
                </span>`
@@ -1017,7 +1105,6 @@ function renderRoundResult({ round, target, tied, winner, isPerfect, eliminated,
             : tied && i === 0 ? "var(--yellow)"
             : "rgba(255,255,255,.07)";
 
-        // Kendini vurgula: soluk player rengi arka plan + hafif outline
         const selfStyle = isSelf
             ? `background:${color}10; outline: 1px solid ${color}30; outline-offset:-1px;`
             : "";
@@ -1033,14 +1120,14 @@ function renderRoundResult({ round, target, tied, winner, isPerfect, eliminated,
             </div>
             <span class="ts-rr-time" style="color:${color}">${p.time.toFixed(2)}s</span>
             <span class="ts-rr-diff">${diffLabel(p.diff)}</span>
-            <div class="ts-rr-score">${dotsHtmlColored(score, S.winScore, color)}</div>
+            ${!isElimMode ? `<div class="ts-rr-score">${dotsHtmlColored(score, S.winScore, color)}</div>` : ""}
             ${ptsIcon}
         </div>`;
     }).join("");
 
-    const tieNote     = tied ? `<div class="ts-tie-note">Bərabərlik — xal verilmədi</div>` : "";
+    const tieNote     = tied ? `<div class="ts-tie-note">Bərabərlik — ${isElimMode ? "heç kim silinmədi" : "xal verilmədi"}</div>` : "";
     const elimNote    = eliminated ? `<div class="ts-elim-note" style="border-color:var(--red)">⚡ ${eliminated} VURULDU</div>` : "";
-    const perfectNote = isPerfect && !tied ? `<div class="ts-perfect-note">⭐ PERFECT +2 XAL!</div>` : "";
+    const perfectNote = isPerfect && !tied && !isElimMode ? `<div class="ts-perfect-note">⭐ PERFECT +2 XAL!</div>` : "";
     const isSolo      = S.players.length === 1;
 
     timestopView.innerHTML = `

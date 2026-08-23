@@ -23,6 +23,10 @@ class RoomService {
     if (room.isFull)                       return { success: false, error: "Oda dolu" };
     if (room.state !== ROOM_STATE.WAITING) return { success: false, error: "Oyun başlamış" };
 
+    // Nickname unique kontrolü
+    const taken = room.getPlayerList().some(p => p.name.toLowerCase() === name.toLowerCase());
+    if (taken) return { success: false, error: `"${name}" adı artıq istifadə olunur` };
+
     const player = new Player(socketId, name);
     room.addPlayer(player);
     return { success: true, player, room };
@@ -66,7 +70,6 @@ class RoomService {
 
     if (settings.gameMode !== undefined) {
       if ([GAME.MODE_CLASSIC, GAME.MODE_ELIMINATION].includes(settings.gameMode)) {
-        // Classic'e geçmek için max 4 oyuncu olmalı
         if (settings.gameMode === GAME.MODE_CLASSIC && room.playerCount > GAME.MAX_PLAYERS_CLASSIC) {
           return { success: false, error: `Klassik mod üçün maksimum ${GAME.MAX_PLAYERS_CLASSIC} oyunçu lazımdır` };
         }
@@ -74,6 +77,21 @@ class RoomService {
       }
     }
 
+    return { success: true, room };
+  }
+
+  /** Oyuncunun kendi rengini değiştir */
+  updatePlayerColor(socketId, color) {
+    const room = this.findRoomBySocket(socketId);
+    if (!room) return { success: false, error: "Oda tapılmadı" };
+    const player = room.getPlayer(socketId);
+    if (!player) return { success: false, error: "Oyunçu tapılmadı" };
+
+    // Renk başka biri tarafından kullanılıyor mu?
+    const taken = room.getPlayerList().some(p => p.socketId !== socketId && p.color === color);
+    if (taken) return { success: false, error: "Bu rəng artıq istifadə olunur" };
+
+    player.color = color;
     return { success: true, room };
   }
 
