@@ -774,11 +774,54 @@ socket.on("game:round_result", (data) => {
     if (data.scores) {
         data.scores.forEach(sc => {
             const p = S.players.find(x => x.name === sc.name);
-            if (p) { p.score = sc.score; p.isEliminated = sc.isEliminated; p.elimRound = sc.elimRound; }
+            if (p) { 
+                p.score = sc.score; 
+                p.isEliminated = sc.isEliminated; 
+                p.elimRound = sc.elimRound;
+                p.readyForNext = sc.readyForNext;
+            }
         });
     }
     S.activePlayers = data.remaining || [];
     renderRoundResult(data);
+});
+
+socket.on("game:next_ready_update", ({ players }) => {
+    // Oyuncu ready durumunu güncelle
+    players.forEach(sc => {
+        const p = S.players.find(x => x.name === sc.name);
+        if (p) p.readyForNext = sc.readyForNext;
+    });
+    // Ekranı yeniden render et
+    const data = {
+        round: S.round,
+        target: S.target,
+        tied: false,
+        winner: null,
+        isPerfect: false,
+        eliminated: null,
+        results: [],
+        scores: players,
+        remaining: S.activePlayers,
+        gameMode: S.gameMode,
+        isGameOver: false,
+    };
+    // Eğer result ekranındaysak, güncelle
+    if (timestopView.querySelector(".ts-result-row")) {
+        renderRoundResult(data);
+    }
+});
+
+socket.on("game:return_to_lobby", () => {
+    // Direkt lobby-ə dön
+    S.running = false;
+    timestopView.classList.add("hidden");
+    lobbyView.classList.remove("hidden");
+    waitingScreen.classList.remove("hidden");
+    joinScreen.classList.add("hidden");
+    
+    // Host-a bildir ki lobby-ə döndük
+    socket.emit("game:return_lobby", { code: S.roomCode });
 });
 
 socket.on("game:finished", (data) => {
@@ -1085,7 +1128,7 @@ function stopSvg(type) {
 /* ════════════════════════════════════════════════════════════
    GAME UI — ROUND RESULT
 ════════════════════════════════════════════════════════════ */
-function renderRoundResult({ round, target, tied, winner, isPerfect, eliminated, results, scores, remaining, gameMode }) {
+function renderRoundResult({ round, target, tied, winner, isPerfect, eliminated, results, scores, remaining, gameMode, isGameOver }) {
     const scoreMap   = Object.fromEntries(scores.map(p => [p.name, p.score]));
     const isElimMode = (gameMode || S.gameMode) === "elimination";
 
@@ -1096,6 +1139,8 @@ function renderRoundResult({ round, target, tied, winner, isPerfect, eliminated,
         const isSelf = p.name === S.myName;
         const color  = playerColor(p.name);
         const hasLeft = S.players.find(pl => pl.name === p.name)?.hasLeft || false;
+        const playerData = scores.find(sc => sc.name === p.name);
+        const isReady = playerData?.readyForNext || false;
 
         // Elimination modda puan/badge yok
         const ptsIcon = (!isElimMode && isWin) ? (isPerfect
@@ -1106,6 +1151,8 @@ function renderRoundResult({ round, target, tied, winner, isPerfect, eliminated,
                 <svg viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>+1
                </span>`)
             : "";
+
+        const readyIcon = isReady && !isGameOver ? `<span class="ready-check" style="color:${color}">✓</span>` : "";
 
         const leftBorder = isElim ? "var(--red)"
             : isWin ? color
@@ -1129,6 +1176,7 @@ function renderRoundResult({ round, target, tied, winner, isPerfect, eliminated,
             <span class="ts-rr-diff">${diffLabel(p.diff)}</span>
             ${!isElimMode ? `<div class="ts-rr-score">${dotsHtmlColored(score, S.winScore, color)}</div>` : ""}
             ${ptsIcon}
+            ${readyIcon}
         </div>`;
     }).join("");
 
@@ -1136,6 +1184,22 @@ function renderRoundResult({ round, target, tied, winner, isPerfect, eliminated,
     const elimNote    = eliminated ? `<div class="ts-elim-note" style="border-color:var(--red)">⚡ ${eliminated} VURULDU</div>` : "";
     const perfectNote = isPerfect && !tied && !isElimMode ? `<div class="ts-perfect-note">⭐ PERFECT +2 XAL!</div>` : "";
     const isSolo      = S.players.length === 1;
+
+    if (isGameOver) {
+        // Oyun bitti — direkt lobby-ə dön mesajı göster
+        timestopView.innerHTML = `
+            <div class="ts-wrap">
+                <span class="ts-eyebrow">TUR ${round} — OYUN BİTDİ</span>
+                <div class="ts-target-box">
+                    <span class="ts-target-label">HƏDƏF VAXT</span>
+                    <div class="ts-target-time">${target.toFixed(2)}<span class="ts-unit">s</span></div>
+                </div>
+                ${perfectNote}${tieNote}${elimNote}
+                <div class="ts-results-list">${rows}</div>
+                <div class="ts-wait-note" style="margin-top:20px">🎉 Lobby-ə dönülür...</div>
+            </div>`;
+        return;
+    }
 
     timestopView.innerHTML = `
         <div class="ts-wrap">
@@ -1149,15 +1213,18 @@ function renderRoundResult({ round, target, tied, winner, isPerfect, eliminated,
             ${isSolo
                 ? `<button class="ts-next-btn" id="tsNextBtn">NÖVBƏTİ TUR →</button>
                    <button class="ts-back-btn2" id="tsExitSolo">ÇIXIŞ</button>`
-                : (S.isHost
-                    ? `<button class="ts-next-btn" id="tsNextBtn">NÖVBƏTİ TUR →</button>`
-                    : `<div class="ts-wait-note">// Host növbəti turu başladacaq...</div>`)
+                : `<button class="ts-next-btn" id="tsNextBtn">NÖVBƏTİ TUR →</button>
+                   <div class="ts-wait-note">// Hər kəs basanda başlayacaq (7-9s auto)</div>`
             }
         </div>`;
 
     $("tsNextBtn")?.addEventListener("click", () => {
         if (isSolo) startSoloRound();
-        else socket.emit("game:next_round", { code: S.roomCode });
+        else {
+            socket.emit("game:next_round", { code: S.roomCode });
+            $("tsNextBtn").disabled = true;
+            $("tsNextBtn").textContent = "HAZ... ✓";
+        }
     });
     $("tsExitSolo")?.addEventListener("click", () => {
         S.running = false;
@@ -1207,19 +1274,18 @@ function renderFinal({ champion, finalScores }) {
             </div>
             <div class="ts-results-list" style="margin-top:24px">${podium}</div>
             <div class="ts-final-actions">
-                ${S.isHost
-                    ? `<button class="ts-next-btn" id="tsPlayAgain">YENİDƏN OYNA</button>`
-                    : `<div class="ts-wait-note">// Host yenidən başladacaq...</div>`}
                 <button class="ts-back-btn2" id="tsGoLobby">LOBBYƏ QAYIT</button>
             </div>
         </div>`;
 
-    $("tsPlayAgain")?.addEventListener("click", () => socket.emit("room:start", { code: S.roomCode }));
     $("tsGoLobby")?.addEventListener("click", () => {
         timestopView.classList.add("hidden");
         lobbyView.classList.remove("hidden");
         waitingScreen.classList.remove("hidden");
         joinScreen.classList.add("hidden");
+        
+        // Server-a bildir
+        socket.emit("game:return_lobby", { code: S.roomCode });
     });
 }
 

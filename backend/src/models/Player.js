@@ -10,6 +10,7 @@ class Player {
     this.hasLeft      = false;  // odadan ayrıldı mı
     this.elimRound    = null;
     this.color        = null;   // hex renk — frontend tarafından atanır
+    this.readyForNext = false;  // round result-da next tura hazır mı
 
     this.currentTime = 0;
     this.currentDiff = 0;
@@ -32,6 +33,7 @@ class Player {
     this.hasStopped   = false;
     this.isPerfect    = false;
     this.isEliminated = false;
+    this.readyForNext = false;
   }
 
   toPublic() {
@@ -45,6 +47,7 @@ class Player {
       isEliminated: this.isEliminated,
       elimRound:    this.elimRound,
       color:        this.color,
+      readyForNext: this.readyForNext,
     };
   }
 

@@ -137,8 +137,19 @@ class SocketHandler {
       const room = roomService.findRoom(code);
       if (!room || room.state !== ROOM_STATE.RESULT) return;
       const player = room.getPlayer(socket.id);
-      if (!player?.isHost) return;
-      this.gameService.startCountdown(room);
+      if (!player) return;
+      
+      // Oyuncu ready for next olarak işaretle
+      this.gameService.playerReadyForNext(room, player);
+    });
+    
+    socket.on("game:return_lobby", ({ code }) => {
+      const room = roomService.findRoom(code);
+      if (!room) return;
+      const player = room.getPlayer(socket.id);
+      if (!player) return;
+      
+      this.gameService.playerReturnedToLobby(room, player);
     });
   }
 

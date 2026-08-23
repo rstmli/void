@@ -1160,6 +1160,19 @@ input {
 }
 .pts-badge svg { width: 12px; height: 12px; }
 
+/* Ready check icon */
+.ready-check {
+    font-size: 16px;
+    font-weight: 900;
+    margin-left: 8px;
+    animation: checkPulse 1s ease-in-out infinite;
+}
+
+@keyframes checkPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.7; transform: scale(1.1); }
+}
+
 .ts-rr-score { display: flex; gap: 4px; align-items: center; }
 .ts-rr-player { display: flex; align-items: center; gap: 8px; }
 .ts-rr-dot    { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
