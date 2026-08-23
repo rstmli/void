@@ -137,25 +137,46 @@ class GameService {
       remaining:  room.activePlayers,
       gameMode:   room.gameMode,
       isGameOver, // oyun bitti mi
+      champion:   isGameOver ? champion.name : null,
     });
 
     if (isGameOver) {
-      // Oyun bitti — direkt lobby-ə dön
-      setTimeout(() => {
-        room.setState(ROOM_STATE.WAITING);
-        this._emit(room.code, "game:return_to_lobby");
-        console.log(`[Game] Oyun bitti, lobby-ə dön | ${room.code}`);
-      }, 2000);
+      // Oyun bitti — ama direkt dönme, kullanıcı karar versin
+      // 7-9 saniye sonra auto lobby
+      const autoDelay = 7000 + Math.random() * 2000;
+      const autoTimer = setTimeout(() => {
+        if (room.state === ROOM_STATE.RESULT) {
+          console.log(`[Game] Auto return to lobby | ${room.code}`);
+          room.setState(ROOM_STATE.WAITING);
+          // Reset game state
+          room.round = 0;
+          room.getPlayerList().forEach(p => {
+            p.score = 0;
+            p.isReady = false;
+            p.isEliminated = false;
+            p.elimRound = null;
+            p.hasLeft = false;
+            p.readyForNext = false;
+          });
+          room.activePlayers = Array.from(room.players.keys()).filter(id => {
+            const p = room.players.get(id);
+            return p && !p.hasLeft;
+          });
+          this._emit(room.code, "game:return_to_lobby");
+        }
+      }, autoDelay);
+      this._nextRoundTimers.set(room.code, autoTimer);
       return;
     }
 
     if (room.activeCount === 1) {
       const last = room.getActivePlayerList()[0];
       if (last && !last.hasLeft) {
+        const autoDelay = 7000 + Math.random() * 2000;
         setTimeout(() => {
           room.setState(ROOM_STATE.WAITING);
           this._emit(room.code, "game:return_to_lobby");
-        }, 2000);
+        }, autoDelay);
       }
       return;
     }
@@ -233,8 +254,31 @@ class GameService {
   /** Oyuncu lobby-ə döndü işareti */
   playerReturnedToLobby(room, player) {
     if (!player) return;
-    player.isReady = true; // lobby-də hazır olarak işaretle
     
+    // Timer'ı iptal et
+    const timer = this._nextRoundTimers.get(room.code);
+    if (timer) {
+      clearTimeout(timer);
+      this._nextRoundTimers.delete(room.code);
+    }
+    
+    // Game state reset
+    room.setState(ROOM_STATE.WAITING);
+    room.round = 0;
+    room.getPlayerList().forEach(p => {
+      p.score = 0;
+      p.isReady = false;
+      p.isEliminated = false;
+      p.elimRound = null;
+      p.readyForNext = false;
+    });
+    room.activePlayers = Array.from(room.players.keys()).filter(id => {
+      const p = room.players.get(id);
+      return p && !p.hasLeft;
+    });
+    
+    // Herkese bildir + room data gönder
+    this._emit(room.code, "game:return_to_lobby");
     this._emit(room.code, "room:updated", { room: room.toPublic() });
   }
 

@@ -792,23 +792,45 @@ socket.on("game:next_ready_update", ({ players }) => {
         const p = S.players.find(x => x.name === sc.name);
         if (p) p.readyForNext = sc.readyForNext;
     });
-    // Ekranı yeniden render et
-    const data = {
-        round: S.round,
-        target: S.target,
-        tied: false,
-        winner: null,
-        isPerfect: false,
-        eliminated: null,
-        results: [],
-        scores: players,
-        remaining: S.activePlayers,
-        gameMode: S.gameMode,
-        isGameOver: false,
-    };
-    // Eğer result ekranındaysak, güncelle
-    if (timestopView.querySelector(".ts-result-row")) {
-        renderRoundResult(data);
+    
+    // Scoreboard-u update et (kaybolmasın)
+    const resultList = document.getElementById("resultList");
+    if (resultList) {
+        // Sadece ready iconları güncelle
+        const activeScores = players.filter(p => !p.isEliminated && !p.hasLeft);
+        const readyCount = activeScores.filter(p => p.readyForNext).length;
+        const totalActive = activeScores.length;
+        
+        // Ready counter güncelle
+        const readyCounter = document.querySelector(".ready-counter");
+        if (readyCounter) {
+            readyCounter.textContent = `${readyCount}/${totalActive} HAZIR`;
+        }
+        
+        // Her row-u güncelle
+        activeScores.forEach(playerData => {
+            const isReady = playerData.readyForNext;
+            const color = playerColor(playerData.name);
+            const rows = resultList.querySelectorAll(".ts-result-row");
+            
+            rows.forEach(row => {
+                const nameEl = row.querySelector(".ts-rr-name");
+                if (nameEl && nameEl.textContent.includes(playerData.name)) {
+                    // Eski ready icon'u sil
+                    const oldCheck = row.querySelector(".ready-check");
+                    if (oldCheck) oldCheck.remove();
+                    
+                    // Yenisini ekle
+                    if (isReady) {
+                        const checkIcon = document.createElement("span");
+                        checkIcon.className = "ready-check";
+                        checkIcon.style.color = color;
+                        checkIcon.textContent = "✓";
+                        row.appendChild(checkIcon);
+                    }
+                }
+            });
+        });
     }
 });
 
@@ -820,8 +842,8 @@ socket.on("game:return_to_lobby", () => {
     waitingScreen.classList.remove("hidden");
     joinScreen.classList.add("hidden");
     
-    // Host-a bildir ki lobby-ə döndük
-    socket.emit("game:return_lobby", { code: S.roomCode });
+    // Refresh waiting screen - room data tekrar çekilecek
+    // Host-a bildir ki lobby-ə döndük (ama zaten herkese gönderildi)
 });
 
 socket.on("game:finished", (data) => {
@@ -1128,9 +1150,14 @@ function stopSvg(type) {
 /* ════════════════════════════════════════════════════════════
    GAME UI — ROUND RESULT
 ════════════════════════════════════════════════════════════ */
-function renderRoundResult({ round, target, tied, winner, isPerfect, eliminated, results, scores, remaining, gameMode, isGameOver }) {
+function renderRoundResult({ round, target, tied, winner, isPerfect, eliminated, results, scores, remaining, gameMode, isGameOver, champion }) {
     const scoreMap   = Object.fromEntries(scores.map(p => [p.name, p.score]));
     const isElimMode = (gameMode || S.gameMode) === "elimination";
+
+    // Ready count hesapla
+    const activeScores = scores.filter(p => !p.isEliminated && !p.hasLeft);
+    const readyCount = activeScores.filter(p => p.readyForNext).length;
+    const totalActive = activeScores.length;
 
     const rows = results.map((p, i) => {
         const isWin  = !tied && p.name === winner;
@@ -1185,19 +1212,34 @@ function renderRoundResult({ round, target, tied, winner, isPerfect, eliminated,
     const perfectNote = isPerfect && !tied && !isElimMode ? `<div class="ts-perfect-note">⭐ PERFECT +2 XAL!</div>` : "";
     const isSolo      = S.players.length === 1;
 
+    const myPlayerData = scores.find(p => p.name === S.myName);
+    const iAmReady = myPlayerData?.readyForNext || false;
+
     if (isGameOver) {
-        // Oyun bitti — direkt lobby-ə dön mesajı göster
+        // Oyun bitti — final scoreboard + lobby-ə dön
+        const champColor = playerColor(champion);
         timestopView.innerHTML = `
             <div class="ts-wrap">
-                <span class="ts-eyebrow">TUR ${round} — OYUN BİTDİ</span>
-                <div class="ts-target-box">
-                    <span class="ts-target-label">HƏDƏF VAXT</span>
+                <span class="ts-eyebrow">🎉 OYUN BİTDİ — ${champion.toUpperCase()} QAZANDI!</span>
+                <div class="ts-target-box" style="border-color:${champColor}40">
+                    <span class="ts-target-label">SON TUR HƏDƏF</span>
                     <div class="ts-target-time">${target.toFixed(2)}<span class="ts-unit">s</span></div>
                 </div>
                 ${perfectNote}${tieNote}${elimNote}
                 <div class="ts-results-list">${rows}</div>
-                <div class="ts-wait-note" style="margin-top:20px">🎉 Lobby-ə dönülür...</div>
+                <button class="ts-next-btn" id="tsGoLobby" style="margin-top:20px">LOBBYƏ QAYIT</button>
+                <div class="progress-bar-wrap">
+                    <div class="progress-bar" id="autoProgressBar"></div>
+                </div>
+                <div class="ts-wait-note">Auto lobby (7-9s)</div>
             </div>`;
+        
+        $("tsGoLobby")?.addEventListener("click", () => {
+            socket.emit("game:return_lobby", { code: S.roomCode });
+        });
+        
+        // Progress bar animation
+        startAutoProgress("autoProgressBar", 7000 + Math.random() * 2000);
         return;
     }
 
@@ -1209,28 +1251,52 @@ function renderRoundResult({ round, target, tied, winner, isPerfect, eliminated,
                 <div class="ts-target-time">${target.toFixed(2)}<span class="ts-unit">s</span></div>
             </div>
             ${perfectNote}${tieNote}${elimNote}
-            <div class="ts-results-list">${rows}</div>
+            <div class="ts-results-list" id="resultList">${rows}</div>
             ${isSolo
                 ? `<button class="ts-next-btn" id="tsNextBtn">NÖVBƏTİ TUR →</button>
                    <button class="ts-back-btn2" id="tsExitSolo">ÇIXIŞ</button>`
-                : `<button class="ts-next-btn" id="tsNextBtn">NÖVBƏTİ TUR →</button>
-                   <div class="ts-wait-note">// Hər kəs basanda başlayacaq (7-9s auto)</div>`
+                : `<button class="ts-next-btn ${iAmReady?"ts-btn-ready":""}" id="tsNextBtn">${iAmReady?"HAZIR ✓":"NÖVBƏTİ TUR →"}</button>
+                   <div class="ready-counter">${readyCount}/${totalActive} HAZIR</div>
+                   <div class="progress-bar-wrap">
+                       <div class="progress-bar" id="autoProgressBar"></div>
+                   </div>
+                   <div class="ts-wait-note">Auto başlama (7-9s)</div>`
             }
         </div>`;
 
     $("tsNextBtn")?.addEventListener("click", () => {
-        if (isSolo) startSoloRound();
-        else {
+        if (isSolo) {
+            startSoloRound();
+        } else if (!iAmReady) {
             socket.emit("game:next_round", { code: S.roomCode });
             $("tsNextBtn").disabled = true;
-            $("tsNextBtn").textContent = "HAZ... ✓";
+            $("tsNextBtn").classList.add("ts-btn-ready");
+            $("tsNextBtn").textContent = "HAZIR ✓";
         }
     });
+    
     $("tsExitSolo")?.addEventListener("click", () => {
         S.running = false;
         timestopView.classList.add("hidden");
         lobbyView.classList.remove("hidden");
     });
+    
+    // Progress bar animation
+    if (!isSolo) {
+        startAutoProgress("autoProgressBar", 7000 + Math.random() * 2000);
+    }
+}
+
+function startAutoProgress(barId, duration) {
+    const bar = document.getElementById(barId);
+    if (!bar) return;
+    
+    bar.style.transition = `width ${duration}ms linear`;
+    bar.style.width = "0%";
+    
+    setTimeout(() => {
+        bar.style.width = "100%";
+    }, 50);
 }
 
 /* ════════════════════════════════════════════════════════════
