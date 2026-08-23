@@ -231,13 +231,17 @@ input {
 /* ══════════════════════════════════════
    LOBBY
 ══════════════════════════════════════ */
-.lobby-view { padding: 64px 0 48px; }
+.lobby-view { 
+    padding: 64px 32px 48px; 
+}
 
 .lobby-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-end;
-    margin-bottom: 48px;
+    margin: 0 auto 48px;
+    max-width: 1200px;
+    width: 100%;
 }
 
 .lobby-header h1 {
@@ -813,7 +817,7 @@ input {
    NAME SCREEN
 ══════════════════════════════════════ */
 .name-form {
-    margin-top: 48px;
+    margin: 48px auto 0;
     max-width: 520px;
 }
 
@@ -832,11 +836,11 @@ input {
 }
 
 .menu-options {
-    margin-top: 48px;
+    margin: 48px auto 0;
+    max-width: 620px;
     display: flex;
     flex-direction: column;
     gap: 16px;
-    max-width: 620px;
 }
 
 .menu-card {
@@ -979,7 +983,7 @@ input {
    JOIN CODE SCREEN
 ══════════════════════════════════════ */
 .join-code-form {
-    margin-top: 48px;
+    margin: 48px auto 0;
     max-width: 520px;
     display: flex;
     flex-direction: column;
@@ -1893,7 +1897,7 @@ input {
     .navigation { display: none; }
 
     /* Lobby */
-    .lobby-view   { padding: 24px 0 20px; }
+    .lobby-view   { padding: 24px 16px 20px; }
     .lobby-header { flex-direction: column; align-items: flex-start; gap: 16px; margin-bottom: 24px; }
     .lobby-header h1 { font-size: clamp(26px, 7vw, 36px); }
     .player-grid  { grid-template-columns: repeat(2, 1fr); }
@@ -2153,7 +2157,9 @@ input {
     grid-template-columns: 1fr 320px;
     gap: 24px;
     align-items: start;
-    margin-top: 32px;
+    margin: 32px auto 0;
+    max-width: 1200px;
+    width: 100%;
 }
 
 .waiting-left {
