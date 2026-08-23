@@ -437,7 +437,8 @@ function updateWaiting(room) {
     S.winScore  = room.winScore;
     S.gameMode  = room.gameMode;
     scoreValue.textContent     = room.winScore;
-    playerCountLbl.textContent = `${room.players.length} / ${room.maxPlayers}`;
+    const activePlayersCount = room.players.filter(p => !p.hasLeft).length;
+    playerCountLbl.textContent = `${activePlayersCount} / ${room.maxPlayers}`;
     waitingCode.textContent    = room.code;
 
     S.isHost = room.players.find(p => p.name === S.myName)?.isHost ?? false;
@@ -453,8 +454,9 @@ function updateWaiting(room) {
         $("modeClassicBtn").classList.toggle("active", room.gameMode === "classic");
         $("modeEliminationBtn").classList.toggle("active", room.gameMode === "elimination");
 
-        // 4'ten fazla oyuncu varsa classic seçilemiyor
-        const classicDisabled = room.players.length > 4;
+        // 4'ten fazla oyuncu varsa classic seçilemiyor — ayrılanları sayma
+        const activePlayerCount = room.players.filter(p => !p.hasLeft).length;
+        const classicDisabled = activePlayerCount > 4;
         $("modeClassicBtn").disabled = classicDisabled;
         $("modeClassicBtn").style.opacity = classicDisabled ? ".35" : "";
         $("modeClassicBtn").title = classicDisabled ? "Klassik mod maksimum 4 oyunçu üçündür" : "";
@@ -472,15 +474,14 @@ function updateWaiting(room) {
 
     const usedColors = room.players.map(p => p.color).filter(Boolean);
 
-    // SAĞ PANEL — oyuncu listesi (kart değil, satır)
+    // SAĞ PANEL — oyuncu listesi (kart değil, satır) — ayrılanları gösterme
     const maxSlots = room.maxPlayers;
-    playerGrid.innerHTML = room.players.map((p, i) => {
+    playerGrid.innerHTML = room.players.filter(p => !p.hasLeft).map((p, i) => {
         const isSelf  = p.name === S.myName;
         const color   = p.color || PLAYER_COLORS[i % PLAYER_COLORS.length];
         const isReady = p.isHost || p.isReady;
-        const hasLeft = p.hasLeft || false;
         return `
-        <div class="pp-player ${isSelf ? "pp-self" : ""} ${isReady ? "pp-ready" : ""} ${hasLeft ? "pp-left" : ""}">
+        <div class="pp-player ${isSelf ? "pp-self" : ""} ${isReady ? "pp-ready" : ""}">
             <div class="pp-avatar" style="background:${color}20; border-color:${color}40; color:${color}">
                 ${p.name.charAt(0).toUpperCase()}
             </div>
@@ -488,7 +489,7 @@ function updateWaiting(room) {
                 <span class="pp-name ${isSelf ? "pp-name-clickable" : ""}"
                       style="${isSelf ? `color:${color};cursor:pointer` : ""}"
                       ${isSelf ? `onclick="openColorPicker(event)"` : ""}>
-                    ${p.name}${isSelf ? " ✎" : ""}${hasLeft ? " (odadan ayrıldı)" : ""}
+                    ${p.name}${isSelf ? " ✎" : ""}
                 </span>
                 <span class="pp-tag">${p.isHost ? "HOST" : isSelf ? "SƏN" : "OYUNÇU"}</span>
             </div>
@@ -502,8 +503,9 @@ function updateWaiting(room) {
         </div>`;
     }).join("");
 
-    // Boş slotlar
-    for (let i = room.players.length; i < maxSlots; i++) {
+    // Boş slotlar — ayrılanların yerine değil, aktif oyuncu sayısına göre
+    const activePlayersCount2 = room.players.filter(p => !p.hasLeft).length;
+    for (let i = activePlayersCount2; i < maxSlots; i++) {
         playerGrid.innerHTML += `
         <div class="pp-player pp-empty">
             <div class="pp-avatar pp-avatar-empty">+</div>
@@ -511,23 +513,24 @@ function updateWaiting(room) {
         </div>`;
     }
 
-    // Status
-    const nonHost     = room.players.filter(p => !p.isHost);
+    // Status — ayrılanları sayma
+    const nonHost     = room.players.filter(p => !p.isHost && !p.hasLeft);
     const readyCount  = nonHost.filter(p => p.isReady).length;
     const allReady    = nonHost.length === 0 || readyCount === nonHost.length;
+    const activePlayersCount3 = room.players.filter(p => !p.hasLeft).length;
 
-    if (room.players.length < 2) {
+    if (activePlayersCount3 < 2) {
         lobbyStatus.textContent    = "Ən az 2 oyunçu lazımdır";
-        lobbyStatusSub.textContent = `${room.players.length}/2 qoşulub`;
+        lobbyStatusSub.textContent = `${activePlayersCount3}/2 qoşulub`;
     } else if (!allReady) {
         lobbyStatus.textContent    = "Oyunçular hazır deyil";
         lobbyStatusSub.textContent = `${readyCount}/${nonHost.length} hazır`;
     } else {
         lobbyStatus.textContent    = "Hazır! Host başladacaq";
-        lobbyStatusSub.textContent = `${room.gameMode === "elimination" ? "Eleme modu" : "Klassik mod"} · ${room.players.length} oyunçu`;
+        lobbyStatusSub.textContent = `${room.gameMode === "elimination" ? "Eleme modu" : "Klassik mod"} · ${activePlayersCount3} oyunçu`;
     }
 
-    startGameBtn.disabled = room.players.length < 2 || !allReady;
+    startGameBtn.disabled = activePlayersCount3 < 2 || !allReady;
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -916,7 +919,7 @@ function renderRound() {
         </div>`;
     }).join("");
 
-    const spectators    = S.players.filter(p => p.isEliminated);
+    const spectators    = S.players.filter(p => p.isEliminated && !p.hasLeft); // ayrılanları gösterme
     const spectatorHtml = spectators.length ? `
         <div class="spectator-bar" id="spectatorBar">
             <div class="spectator-bar-title">SEYİRÇİLƏR</div>

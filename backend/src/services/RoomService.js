@@ -19,16 +19,24 @@ class RoomService {
 
   joinRoom(socketId, name, roomCode) {
     const room = this.findRoom(roomCode);
-    if (!room)                             return { success: false, error: "Oda tapılmadı" };
-    if (room.isFull)                       return { success: false, error: "Oda dolu" };
-    if (room.state !== ROOM_STATE.WAITING) return { success: false, error: "Oyun başlamış" };
+    if (!room)     return { success: false, error: "Oda tapılmadı" };
+    if (room.isFull) return { success: false, error: "Oda dolu" };
+    
+    // WAITING veya FINISHED durumunda katılabilir
+    if (![ROOM_STATE.WAITING, ROOM_STATE.FINISHED].includes(room.state)) {
+      return { success: false, error: "Oyun davam edir" };
+    }
 
-    // Nickname unique kontrolü
-    const taken = room.getPlayerList().some(p => p.name.toLowerCase() === name.toLowerCase());
+    // Nickname unique kontrolü (sadece aktif oyuncular)
+    const taken = room.getPlayerList()
+      .filter(p => !p.hasLeft)
+      .some(p => p.name.toLowerCase() === name.toLowerCase());
     if (taken) return { success: false, error: `"${name}" adı artıq istifadə olunur` };
 
     const player = new Player(socketId, name);
-    room.addPlayer(player);
+    const added = room.addPlayer(player);
+    if (!added) return { success: false, error: "Oda doldu" };
+    
     return { success: true, player, room };
   }
 

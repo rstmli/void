@@ -28,7 +28,8 @@ class Room {
 
   addPlayer(player) {
     if (this.players.size >= this.maxPlayers) return false;
-    if (this.state !== ROOM_STATE.WAITING)    return false;
+    // FINISHED durumunda yeni oyuncular katılabilir
+    if (![ROOM_STATE.WAITING, ROOM_STATE.FINISHED].includes(this.state)) return false;
     if (this.players.size === 0) player.isHost = true;
     this.players.set(player.socketId, player);
     this.activePlayers.push(player.socketId);
@@ -46,13 +47,24 @@ class Room {
   getPlayerList()       { return Array.from(this.players.values()); }
   getActivePlayerList() { return this.activePlayers.map(id => this.players.get(id)).filter(Boolean); }
   getHost()             { return this.getPlayerList().find(p => p.isHost); }
-  getSpectators()       { return this.getPlayerList().filter(p => p.isEliminated); }
+  getSpectators()       { return this.getPlayerList().filter(p => p.isEliminated && !p.hasLeft); }
 
-  get playerCount() { return this.players.size; }
+  get playerCount() { 
+    return Array.from(this.players.values()).filter(p => !p.hasLeft).length; 
+  }
   get activeCount() { return this.activePlayers.length; }
-  get isFull()      { return this.players.size >= this.maxPlayers; }
-  get isEmpty()     { return this.players.size === 0; }
-  get allReady()    { return this.getPlayerList().every(p => p.isReady); }
+  get isFull() { 
+    const activePlayers = Array.from(this.players.values()).filter(p => !p.hasLeft).length;
+    return activePlayers >= this.maxPlayers; 
+  }
+  get isEmpty()     { 
+    const activePlayers = Array.from(this.players.values()).filter(p => !p.hasLeft).length;
+    return activePlayers === 0; 
+  }
+  get allReady()    { 
+    const activePlayers = Array.from(this.players.values()).filter(p => !p.hasLeft);
+    return activePlayers.every(p => p.isReady); 
+  }
 
   prepareRound() {
     this.round += 1;

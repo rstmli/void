@@ -1788,15 +1788,6 @@ input {
     opacity: .25;
 }
 
-.pp-left {
-    opacity: .5;
-}
-
-.pp-left .pp-name {
-    text-decoration: line-through;
-    color: var(--dim) !important;
-}
-
 .pp-avatar {
     width: 34px; height: 34px;
     border-radius: 8px;
