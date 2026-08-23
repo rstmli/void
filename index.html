@@ -336,6 +336,28 @@ function dotsHtmlColored(score, max, color) {
 }
 
 /**
+ * N oyuncu için daire çevresindeki pozisyonları hesaplar.
+ * Kendim her zaman alta (270°) yerleşir, diğerleri eşit aralıklarla.
+ * @param {number} total   — toplam aktif oyuncu sayısı
+ * @param {number} myIndex — kendi sıram (0 = alta)
+ * @param {number} radius  — daireden uzaklık (px)
+ * returns { x, y, angle }[]
+ */
+function calcSeatPositions(total, myIndex, radius) {
+    const positions = [];
+    const startAngle = 270; // ben her zaman alt (270°)
+    for (let i = 0; i < total; i++) {
+        // myIndex=0 → 270°, diğerleri eşit aralıkla
+        const angle = (startAngle + (360 / total) * i) % 360;
+        const rad   = (angle * Math.PI) / 180;
+        const x     = Math.cos(rad) * radius; // merkeze göre
+        const y     = Math.sin(rad) * radius;
+        positions.push({ x, y, angle });
+    }
+    return positions;
+}
+
+/**
  * Oyuncu sayısına göre masa SVG'sini döner.
  * @param {number} count — aktif oyuncu sayısı
  */
@@ -397,6 +419,12 @@ function updateWaiting(room) {
         // Mod buton aktif durumu
         $("modeClassicBtn").classList.toggle("active", room.gameMode === "classic");
         $("modeEliminationBtn").classList.toggle("active", room.gameMode === "elimination");
+
+        // 4'ten fazla oyuncu varsa classic seçilemiyor
+        const classicDisabled = room.players.length > 4;
+        $("modeClassicBtn").disabled = classicDisabled;
+        $("modeClassicBtn").style.opacity = classicDisabled ? ".35" : "";
+        $("modeClassicBtn").title = classicDisabled ? "Klassik mod maksimum 4 oyunçu üçündür" : "";
     } else {
         readyBtn.classList.remove("hidden");
         const myPlayer = room.players.find(p => p.name === S.myName);
@@ -589,6 +617,7 @@ $("scoreUp").addEventListener("click", () => {
 
 // Mod seçimi — sadece host
 $("modeClassicBtn")?.addEventListener("click", () => {
+    if (S.players.length > 4) return; // 4'ten fazla oyuncu varsa classic seçilemiyor
     socket.emit("room:settings", { gameMode: "classic" });
 });
 $("modeEliminationBtn")?.addEventListener("click", () => {
@@ -712,17 +741,22 @@ function renderCountdown(count) {
         lobbyView.classList.add("hidden");
         timestopView.classList.remove("hidden");
 
-        const pos   = ["top","right","bottom","left"];
         const myIdx = S.players.findIndex(p => p.name === S.myName);
         const reord = myIdx >= 0
             ? [S.players[myIdx], ...S.players.filter(p => p.name !== S.myName)]
             : S.players;
-        const cpos  = ["bottom","top","left","right"];
-        const seats = reord.map((p, i) => {
-            const origIdx = S.players.indexOf(p);
+
+        const activeReord = reord.filter(p => !p.isEliminated);
+        const radius = 42; // % cinsinden — sahnenin merkezinden
+        const positions = calcSeatPositions(activeReord.length, 0, radius);
+
+        const seats = activeReord.map((p, i) => {
+            const origIdx  = S.players.indexOf(p);
             const colorIdx = origIdx >= 0 ? origIdx : i;
+            const pos      = positions[i];
             return `
-            <div class="ts-seat ts-seat-${cpos[i]} ts-seat-waiting player-color-${colorIdx}">
+            <div class="ts-seat ts-seat-circle player-color-${colorIdx}"
+                 style="left:calc(50% + ${pos.x.toFixed(1)}%); top:calc(50% + ${pos.y.toFixed(1)}%); transform:translate(-50%,-50%)">
                 <i data-lucide="armchair" class="ts-chair-icon ts-chair-idle"></i>
                 <div class="ts-seat-name ${p.name===S.myName?"ts-name-self":""}">${p.name}</div>
             </div>`}).join("");
@@ -760,25 +794,26 @@ function renderCountdown(count) {
    GAME UI — ROUND
 ════════════════════════════════════════════════════════════ */
 function renderRound() {
-    // Kendi koltuğum her zaman bottom — diğerleri top/left/right
-    const allPos = ["bottom", "top", "left", "right"];
-    const myIndex = S.players.findIndex(p => p.name === S.myName);
-    // Oyuncuları yeniden sırala: ben her zaman 0. index (bottom)
+    const myIndex   = S.players.findIndex(p => p.name === S.myName);
     const reordered = myIndex >= 0
         ? [S.players[myIndex], ...S.players.filter(p => p.name !== S.myName)]
         : S.players;
 
-    const isSolo = S.players.length === 1;
+    const activeReordered = reordered.filter(p => !p.isEliminated);
+    const isSolo = activeReordered.length === 1;
 
-    const seats = reordered.map((p, i) => {
-        const self      = p.name === S.myName;
-        const pos       = allPos[i] || "top";
-        const origIdx   = S.players.indexOf(p);
-        const colorIdx  = origIdx >= 0 ? origIdx : i;
-        // Elenmiş oyuncuları masada gösterme
-        if (p.isEliminated) return "";
+    // Daire çevresine eşit aralıklı yerleşim
+    const radius    = 40;
+    const positions = calcSeatPositions(activeReordered.length, 0, radius);
+
+    const seats = activeReordered.map((p, i) => {
+        const self     = p.name === S.myName;
+        const origIdx  = S.players.indexOf(p);
+        const colorIdx = origIdx >= 0 ? origIdx : i;
+        const pos      = positions[i];
         return `
-        <div class="ts-seat ts-seat-${pos} player-color-${colorIdx}" data-name="${p.name}">
+        <div class="ts-seat ts-seat-circle player-color-${colorIdx}" data-name="${p.name}"
+             style="left:calc(50% + ${pos.x.toFixed(1)}%); top:calc(50% + ${pos.y.toFixed(1)}%); transform:translate(-50%,-50%)">
             <i data-lucide="armchair" class="ts-chair-icon${self?" chair-self":""}"></i>
             <div class="ts-seat-score">${dotsHtml(p.score, S.winScore)}</div>
             <div class="ts-seat-name ${self?"ts-name-self":""}">${self?"SƏN · ":""}${p.name}</div>
@@ -792,7 +827,6 @@ function renderRound() {
         </div>`;
     }).join("");
 
-    // Seyirci paneli — elimination modda elenmiş oyuncular
     const spectators    = S.players.filter(p => p.isEliminated);
     const spectatorHtml = spectators.length ? `
         <div class="spectator-bar" id="spectatorBar">
@@ -817,7 +851,7 @@ function renderRound() {
             <button class="ts-back-btn" id="tsBackBtn">← GERİ</button>
             <span class="ts-eyebrow">TIME STOP — TUR ${S.round}</span>
             <span class="ts-eyebrow" style="color:var(--muted)">
-                ${isSolo ? "ANTRENMAN" : S.gameMode === "elimination" ? `SON ${S.activePlayers?.length ?? "?"} QALDI` : `İLK ${S.winScore} QALIB`}
+                ${isSolo ? "ANTRENMAN" : S.gameMode === "elimination" ? `SON ${activeReordered.length} QALDI` : `İLK ${S.winScore} QALIB`}
             </span>
         </div>
         <div class="ts-table-scene ts-scene-game" id="tsScene"
@@ -832,7 +866,6 @@ function renderRound() {
             </div>
         </div>
         ${spectatorHtml}
-        <!-- Mobil stop bar -->
         <div class="mobile-stop-bar" id="mobileStopBar">
             <button class="mobile-stop-btn player-color-0" id="mobileStopBtn"
                     style="background: var(--player-color)">

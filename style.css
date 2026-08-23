@@ -871,6 +871,12 @@ input {
 .ts-seat-left   { left: 3%;  top: 50%;  transform: translateY(-50%); }
 .ts-seat-right  { right: 3%; top: 50%;  transform: translateY(-50%); }
 
+/* Matematik ile hesaplanan circular pozisyon */
+.ts-seat-circle {
+    position: absolute;
+    /* left/top JS'den inline style ile gelir */
+}
+
 .ts-seat-score { display: flex; gap: 4px; }
 
 .ts-score-dot {

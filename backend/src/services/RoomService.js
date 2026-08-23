@@ -66,9 +66,11 @@ class RoomService {
 
     if (settings.gameMode !== undefined) {
       if ([GAME.MODE_CLASSIC, GAME.MODE_ELIMINATION].includes(settings.gameMode)) {
+        // Classic'e geçmek için max 4 oyuncu olmalı
+        if (settings.gameMode === GAME.MODE_CLASSIC && room.playerCount > GAME.MAX_PLAYERS_CLASSIC) {
+          return { success: false, error: `Klassik mod üçün maksimum ${GAME.MAX_PLAYERS_CLASSIC} oyunçu lazımdır` };
+        }
         room.gameMode = settings.gameMode;
-        // Mod değişince max player güncellenir — dolup taşan oyuncuları kontrol etmeye gerek yok
-        // çünkü classic → elim geçince max artar, sorun olmaz
       }
     }
 
