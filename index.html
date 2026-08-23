@@ -36,33 +36,102 @@
 
 <main class="main">
 
-<!-- ═══════════════ JOIN SCREEN ═══════════════ -->
+<!-- ═══════════════ NAME SCREEN ═══════════════ -->
 <section class="lobby-view" id="lobbyView">
-    <div id="joinScreen">
+    <div id="nameScreen">
         <div class="lobby-header">
             <div>
-                <span class="eyebrow">PRIVATE PARTY</span>
-                <h1>Oyuna<br><span>qoşul.</span></h1>
-                <p>Oda yarat və ya mövcud oda kodunu daxil et.</p>
+                <span class="eyebrow">WELCOME TO</span>
+                <h1>VOID<br><span>TIME STOP</span></h1>
+                <p>Oyuna başlamaq üçün adını daxil et</p>
             </div>
         </div>
-        <div class="join-form">
+        <div class="name-form">
             <div class="join-field">
                 <label class="join-label">OYUNÇU ADI</label>
                 <input type="text" id="playerNameInput" class="join-input"
                     placeholder="adını daxil et..." maxlength="16" autocomplete="off"/>
             </div>
-            <div class="join-row">
-                <button class="play-button" id="createRoomBtn">
-                    <span>ODA YARAT</span><span class="play-arrow">→</span>
-                </button>
-                <div class="join-or">YA DA</div>
-                <div class="join-code-row">
-                    <input type="text" id="roomCodeInput" class="join-input join-code-input"
-                        placeholder="VOID-XXXX" maxlength="9" autocomplete="off"/>
-                    <button class="join-btn" id="joinRoomBtn">QOŞUL</button>
-                </div>
+            <button class="play-button" id="nameSubmitBtn">
+                <span>DAVAM ET</span><span class="play-arrow">→</span>
+            </button>
+            <div class="join-error hidden" id="nameError"></div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ MENU SCREEN ═══════════════ -->
+    <div id="menuScreen" class="hidden">
+        <div class="lobby-header">
+            <div>
+                <span class="eyebrow">PRIVATE PARTY</span>
+                <h1>Mod<br><span>seç.</span></h1>
+                <p id="menuGreeting">Xoş gəldin, <span id="menuPlayerName">—</span></p>
             </div>
+        </div>
+        <div class="menu-options">
+            <button class="menu-card" id="createRoomBtn">
+                <div class="menu-card-icon">
+                    <i data-lucide="plus-circle"></i>
+                </div>
+                <div class="menu-card-content">
+                    <h3>ODA YARAT</h3>
+                    <p>Yeni şəxsi oda yarat və dostlarını dəvət et</p>
+                </div>
+                <i data-lucide="chevron-right" class="menu-card-arrow"></i>
+            </button>
+
+            <button class="menu-card" id="joinRoomCardBtn">
+                <div class="menu-card-icon">
+                    <i data-lucide="log-in"></i>
+                </div>
+                <div class="menu-card-content">
+                    <h3>ODAYA QOŞUL</h3>
+                    <p>Oda kodu ilə mövcud oyuna qatıl</p>
+                </div>
+                <i data-lucide="chevron-right" class="menu-card-arrow"></i>
+            </button>
+
+            <button class="menu-card menu-card-disabled" disabled>
+                <div class="menu-card-icon">
+                    <i data-lucide="list"></i>
+                </div>
+                <div class="menu-card-content">
+                    <h3>SUNUCU LİSTƏSİ</h3>
+                    <p>Açıq sunuculara bax (tezliklə)</p>
+                </div>
+                <i data-lucide="lock" class="menu-card-arrow"></i>
+            </button>
+
+            <button class="menu-back-btn" id="menuBackBtn">
+                <i data-lucide="arrow-left"></i>
+                <span>GERİ</span>
+            </button>
+        </div>
+        <div class="join-error hidden" id="menuError"></div>
+    </div>
+
+    <!-- ═══════════════ JOIN CODE INPUT ═══════════════ -->
+    <div id="joinCodeScreen" class="hidden">
+        <div class="lobby-header">
+            <div>
+                <span class="eyebrow">ODAYA QOŞUL</span>
+                <h1>Oda kodu<br><span>daxil et.</span></h1>
+                <p>Dost göndərdiyi kodu buraya yaz</p>
+            </div>
+        </div>
+        <div class="join-code-form">
+            <div class="join-field">
+                <label class="join-label">ODA KODU</label>
+                <input type="text" id="roomCodeInput" class="join-input"
+                    placeholder="VOID-XXXX" maxlength="9" autocomplete="off"/>
+            </div>
+            <button class="play-button" id="joinRoomBtn">
+                <span>QOŞUL</span><span class="play-arrow">→</span>
+            </button>
+            <button class="menu-back-btn" id="joinBackBtn">
+                <i data-lucide="arrow-left"></i>
+                <span>GERİ</span>
+            </button>
             <div class="join-error hidden" id="joinError"></div>
         </div>
     </div>
@@ -270,9 +339,13 @@ try {
 ════════════════════════════════════════════════════════════ */
 const $ = id => document.getElementById(id);
 const lobbyView      = $("lobbyView");
-const joinScreen     = $("joinScreen");
+const nameScreen     = $("nameScreen");
+const menuScreen     = $("menuScreen");
+const joinCodeScreen = $("joinCodeScreen");
 const waitingScreen  = $("waitingScreen");
 const timestopView   = $("timestopView");
+const nameError      = $("nameError");
+const menuError      = $("menuError");
 const joinError      = $("joinError");
 const playerGrid     = $("playerGrid");
 const playerCountLbl = $("playerCountLabel");
@@ -313,10 +386,11 @@ function clearName() {
 /* ════════════════════════════════════════════════════════════
    HELPERS
 ════════════════════════════════════════════════════════════ */
-function showError(msg) {
-    joinError.textContent = msg;
-    joinError.classList.remove("hidden");
-    setTimeout(() => joinError.classList.add("hidden"), 4000);
+function showError(msg, target = "menu") {
+    const errorEl = target === "name" ? nameError : target === "join" ? joinError : menuError;
+    errorEl.textContent = msg;
+    errorEl.classList.remove("hidden");
+    setTimeout(() => errorEl.classList.add("hidden"), 4000);
 }
 
 function updateTopbar(name) {
@@ -416,7 +490,9 @@ function showWaitingScreen(room) {
     saveName(S.myName);
     updateTopbar(S.myName);
 
-    joinScreen.classList.add("hidden");
+    nameScreen.classList.add("hidden");
+    menuScreen.classList.add("hidden");
+    joinCodeScreen.classList.add("hidden");
     waitingScreen.classList.remove("hidden");
     chatPanel.classList.remove("hidden-chat");
     lobbyView.classList.remove("hidden");
@@ -660,32 +736,66 @@ function sendChat() {
 /* ════════════════════════════════════════════════════════════
    LOBBY EVENT LISTENERS
 ════════════════════════════════════════════════════════════ */
+
+// Name screen — isim gir, menüye geç
+$("nameSubmitBtn").addEventListener("click", () => {
+    const name = $("playerNameInput").value.trim();
+    if (!name) return showError("Adını daxil et", "name");
+    
+    const validation = validateName(name);
+    if (!validation.valid) return showError(validation.error, "name");
+    
+    S.myName = validation.name;
+    saveName(S.myName);
+    updateTopbar(S.myName);
+    
+    // Menüye geç
+    nameScreen.classList.add("hidden");
+    menuScreen.classList.remove("hidden");
+    $("menuPlayerName").textContent = S.myName;
+    lucide.createIcons();
+});
+
+$("playerNameInput").addEventListener("keydown", e => { 
+    if (e.code === "Enter") $("nameSubmitBtn").click(); 
+});
+
+// Menu screen — Oda yarat
 $("createRoomBtn").addEventListener("click", () => {
-    const name = $("playerNameInput").value.trim();
-    if (!name) return showError("Adını daxil et");
-    
-    const validation = validateName(name);
-    if (!validation.valid) return showError(validation.error);
-    
-    S.myName = validation.name;
-    socket.emit("room:create", { name: validation.name });
+    socket.emit("room:create", { name: S.myName });
 });
 
+// Menu screen — Oda koduna katıl ekranına geç
+$("joinRoomCardBtn").addEventListener("click", () => {
+    menuScreen.classList.add("hidden");
+    joinCodeScreen.classList.remove("hidden");
+    lucide.createIcons();
+});
+
+// Menu geri butonu — name screen'e dön
+$("menuBackBtn").addEventListener("click", () => {
+    menuScreen.classList.add("hidden");
+    nameScreen.classList.remove("hidden");
+    lucide.createIcons();
+});
+
+// Join code screen — katıl
 $("joinRoomBtn").addEventListener("click", () => {
-    const name = $("playerNameInput").value.trim();
     const code = $("roomCodeInput").value.trim().toUpperCase();
-    if (!name) return showError("Adını daxil et");
-    if (!code) return showError("Oda kodunu daxil et");
-    
-    const validation = validateName(name);
-    if (!validation.valid) return showError(validation.error);
-    
-    S.myName = validation.name;
-    socket.emit("room:join", { name: validation.name, code });
+    if (!code) return showError("Oda kodunu daxil et", "join");
+    socket.emit("room:join", { name: S.myName, code });
 });
 
-$("playerNameInput").addEventListener("keydown", e => { if (e.code === "Enter") $("createRoomBtn").click(); });
-$("roomCodeInput").addEventListener("keydown",   e => { if (e.code === "Enter") $("joinRoomBtn").click(); });
+$("roomCodeInput").addEventListener("keydown", e => { 
+    if (e.code === "Enter") $("joinRoomBtn").click(); 
+});
+
+// Join code geri butonu — menu'ye dön
+$("joinBackBtn").addEventListener("click", () => {
+    joinCodeScreen.classList.add("hidden");
+    menuScreen.classList.remove("hidden");
+    lucide.createIcons();
+});
 
 // Hazır butonu
 readyBtn.addEventListener("click", () => {
@@ -722,10 +832,12 @@ logoutBtn.addEventListener("click", () => {
     S.myName   = "";
     S.roomCode = "";
     S.isHost   = false;
-    // UI sıfırla
+    // UI sıfırla — name screen'e dön
     waitingScreen.classList.add("hidden");
     timestopView.classList.add("hidden");
-    joinScreen.classList.remove("hidden");
+    menuScreen.classList.add("hidden");
+    joinCodeScreen.classList.add("hidden");
+    nameScreen.classList.remove("hidden");
     lobbyView.classList.remove("hidden");
     topbarName.textContent   = "—";
     topbarAvatar.textContent = "?";
@@ -734,6 +846,7 @@ logoutBtn.addEventListener("click", () => {
     roomSettings.classList.add("hidden");
     startGameBtn.classList.add("hidden");
     soloBtn.classList.add("hidden");
+    $("playerNameInput").value = "";
 });
 
 // Oda ayarları — win score
@@ -773,10 +886,12 @@ socket.on("room:joined",      ({ room }) => showWaitingScreen(room));
 socket.on("room:updated",     ({ room }) => updateWaiting(room));
 socket.on("room:player_joined",({ room })=> updateWaiting(room));
 socket.on("room:player_left", ({ name, room }) => {
-    // Oda boşaldıysa (sadece biz kaldık veya hepsi gitti) join ekranına dön
+    // Oda boşaldıysa (sadece biz kaldık veya hepsi gitti) name screen'e dön
     if (!room || room.players.length === 0) {
         waitingScreen.classList.add("hidden");
-        joinScreen.classList.remove("hidden");
+        menuScreen.classList.add("hidden");
+        joinCodeScreen.classList.add("hidden");
+        nameScreen.classList.remove("hidden");
         S.roomCode = "";
         appendChat("", "Oda boşaldı", "system");
         return;
@@ -883,7 +998,9 @@ socket.on("game:return_to_lobby", () => {
     timestopView.classList.add("hidden");
     lobbyView.classList.remove("hidden");
     waitingScreen.classList.remove("hidden");
-    joinScreen.classList.add("hidden");
+    nameScreen.classList.add("hidden");
+    menuScreen.classList.add("hidden");
+    joinCodeScreen.classList.add("hidden");
     
     // Refresh waiting screen - room data tekrar çekilecek
     // Host-a bildir ki lobby-ə döndük (ama zaten herkese gönderildi)
@@ -1397,7 +1514,9 @@ function renderFinal({ champion, finalScores }) {
         timestopView.classList.add("hidden");
         lobbyView.classList.remove("hidden");
         waitingScreen.classList.remove("hidden");
-        joinScreen.classList.add("hidden");
+        nameScreen.classList.add("hidden");
+        menuScreen.classList.add("hidden");
+        joinCodeScreen.classList.add("hidden");
         
         // Server-a bildir
         socket.emit("game:return_lobby", { code: S.roomCode });
@@ -1415,7 +1534,9 @@ function renderAborted(reason) {
         timestopView.classList.add("hidden");
         lobbyView.classList.remove("hidden");
         waitingScreen.classList.remove("hidden");
-        joinScreen.classList.add("hidden");
+        nameScreen.classList.add("hidden");
+        menuScreen.classList.add("hidden");
+        joinCodeScreen.classList.add("hidden");
     });
 }
 
@@ -1435,7 +1556,9 @@ function renderLastStanding(name, reason) {
         timestopView.classList.add("hidden");
         lobbyView.classList.remove("hidden");
         waitingScreen.classList.remove("hidden");
-        joinScreen.classList.add("hidden");
+        nameScreen.classList.add("hidden");
+        menuScreen.classList.add("hidden");
+        joinCodeScreen.classList.add("hidden");
     });
 }
 

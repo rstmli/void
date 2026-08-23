@@ -589,6 +589,183 @@ input {
 }
 
 /* ══════════════════════════════════════
+   NAME SCREEN
+══════════════════════════════════════ */
+.name-form {
+    margin-top: 48px;
+    max-width: 520px;
+}
+
+/* ══════════════════════════════════════
+   MENU SCREEN
+══════════════════════════════════════ */
+#menuGreeting {
+    font-size: 15px;
+    color: var(--muted);
+    margin-top: 8px;
+}
+
+#menuGreeting span {
+    color: var(--green);
+    font-weight: 700;
+}
+
+.menu-options {
+    margin-top: 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 620px;
+}
+
+.menu-card {
+    background: rgba(255,255,255,.03);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 16px;
+    padding: 24px;
+    display: grid;
+    grid-template-columns: 56px 1fr 24px;
+    align-items: center;
+    gap: 20px;
+    cursor: pointer;
+    transition: all .25s cubic-bezier(.4,0,.2,1);
+    position: relative;
+    overflow: hidden;
+}
+
+.menu-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--green) 0%, var(--cyan) 100%);
+    opacity: 0;
+    transition: opacity .3s;
+}
+
+.menu-card:hover::before {
+    opacity: .06;
+}
+
+.menu-card:hover {
+    border-color: rgba(0,232,122,.3);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,232,122,.12);
+}
+
+.menu-card:active {
+    transform: translateY(0);
+}
+
+.menu-card-disabled {
+    opacity: .4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.menu-card-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 12px;
+    background: rgba(0,232,122,.1);
+    border: 1px solid rgba(0,232,122,.2);
+    display: grid;
+    place-items: center;
+    position: relative;
+    z-index: 1;
+}
+
+.menu-card-icon i {
+    width: 28px;
+    height: 28px;
+    color: var(--green);
+}
+
+.menu-card-disabled .menu-card-icon {
+    background: rgba(255,255,255,.05);
+    border-color: rgba(255,255,255,.1);
+}
+
+.menu-card-disabled .menu-card-icon i {
+    color: var(--muted);
+}
+
+.menu-card-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    position: relative;
+    z-index: 1;
+}
+
+.menu-card-content h3 {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    color: #fff;
+    margin: 0;
+}
+
+.menu-card-content p {
+    font-size: 13px;
+    color: var(--muted);
+    margin: 0;
+    line-height: 1.5;
+}
+
+.menu-card-arrow {
+    width: 24px;
+    height: 24px;
+    color: var(--muted);
+    transition: transform .25s, color .25s;
+    position: relative;
+    z-index: 1;
+}
+
+.menu-card:hover .menu-card-arrow {
+    color: var(--green);
+    transform: translateX(4px);
+}
+
+.menu-back-btn {
+    margin-top: 24px;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 12px;
+    padding: 14px 24px;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: .5px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all .2s;
+}
+
+.menu-back-btn:hover {
+    border-color: rgba(255,255,255,.2);
+    color: #fff;
+    transform: translateX(-2px);
+}
+
+.menu-back-btn i {
+    width: 16px;
+    height: 16px;
+}
+
+/* ══════════════════════════════════════
+   JOIN CODE SCREEN
+══════════════════════════════════════ */
+.join-code-form {
+    margin-top: 48px;
+    max-width: 520px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* ══════════════════════════════════════
    JOIN FORM
 ══════════════════════════════════════ */
 .join-form {
@@ -1498,6 +1675,24 @@ input {
     .player-grid  { grid-template-columns: repeat(2, 1fr); }
     .player-card  { min-height: 130px; padding: 14px; }
 
+    /* Menu cards — mobil */
+    .menu-options { max-width: 100%; }
+    .menu-card { 
+        padding: 20px; 
+        grid-template-columns: 48px 1fr 20px;
+        gap: 16px;
+    }
+    .menu-card-icon { 
+        width: 48px; 
+        height: 48px; 
+    }
+    .menu-card-icon i { 
+        width: 24px; 
+        height: 24px; 
+    }
+    .menu-card-content h3 { font-size: 16px; }
+    .menu-card-content p { font-size: 12px; }
+    
     /* Lobby bottom — sticky görünür */
     .lobby-bottom { flex-direction: column; align-items: stretch; gap: 10px; }
     .lobby-actions { flex-direction: column; gap: 8px; }
