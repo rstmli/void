@@ -1098,33 +1098,7 @@ logoutBtn.addEventListener("click", () => {
     topbarAvatar.textContent = "?";
     logoutBtn.style.display  = "none";
     chatPanel.classList.add("hidden-chat");
-    roomSettings.classList.add("hidden");
-    startGameBtn.classList.add("hidden");
-    soloBtn.classList.add("hidden");
     $("playerNameInput").value = "";
-});
-
-// Oda ayarları — win score
-$("scoreDown").addEventListener("click", () => {
-    const cur = parseInt(scoreValue.textContent);
-    if (cur > 3) {
-        socket.emit("room:settings", { winScore: cur - 1 });
-    }
-});
-$("scoreUp").addEventListener("click", () => {
-    const cur = parseInt(scoreValue.textContent);
-    if (cur < 10) {
-        socket.emit("room:settings", { winScore: cur + 1 });
-    }
-});
-
-// Mod seçimi — sadece host
-$("modeClassicBtn")?.addEventListener("click", () => {
-    if (S.players.length > 4) return; // 4'ten fazla oyuncu varsa classic seçilemiyor
-    socket.emit("room:settings", { gameMode: "classic" });
-});
-$("modeEliminationBtn")?.addEventListener("click", () => {
-    socket.emit("room:settings", { gameMode: "elimination" });
 });
 
 /* ════════════════════════════════════════════════════════════
