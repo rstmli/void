@@ -256,6 +256,10 @@
                     <button class="play-button hidden" id="startGameBtn">
                         <span>BAŞLA</span><span class="play-arrow">→</span>
                     </button>
+                    <button class="leave-lobby-btn" id="leaveLobbyBtn">
+                        <i data-lucide="log-out"></i>
+                        <span>LOBIDƏN AYRIL</span>
+                    </button>
                 </div>
             </div>
 
@@ -1039,6 +1043,28 @@ readyBtn.addEventListener("click", () => {
 // Başlat (host)
 startGameBtn.addEventListener("click", () => {
     socket.emit("room:start", { code: S.roomCode });
+});
+
+// Lobiden ayrıl
+$("leaveLobbyBtn").addEventListener("click", () => {
+    if (S.roomCode && socket.connected) {
+        socket.disconnect();
+        socket.connect();
+    }
+    
+    S.roomCode = "";
+    S.isHost = false;
+    
+    // Menüye dön
+    waitingScreen.classList.add("hidden");
+    timestopView.classList.add("hidden");
+    joinCodeScreen.classList.add("hidden");
+    menuScreen.classList.remove("hidden");
+    nameScreen.classList.add("hidden");
+    lobbyView.classList.remove("hidden");
+    
+    chatPanel.classList.add("hidden-chat");
+    lucide.createIcons();
 });
 
 // Kod kopyala

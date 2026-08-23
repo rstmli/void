@@ -539,9 +539,37 @@ input {
 ══════════════════════════════════════ */
 .lobby-actions {
     display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: 10px;
-    flex-wrap: wrap;
+}
+
+.leave-lobby-btn {
+    height: 44px;
+    padding: 0 18px;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 10px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .5px;
+    cursor: pointer;
+    transition: all .2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.leave-lobby-btn:hover {
+    background: rgba(255,51,68,.08);
+    border-color: var(--red);
+    color: var(--red);
+}
+
+.leave-lobby-btn i {
+    width: 16px;
+    height: 16px;
 }
 
 .ready-btn {
