@@ -457,9 +457,6 @@ const lobbyStatus    = $("lobbyStatusText");
 const lobbyStatusSub = $("lobbyStatusSub");
 const startGameBtn   = $("startGameBtn");
 const readyBtn       = $("readyBtn");
-const soloBtn        = $("soloBtn");
-const roomSettings   = $("roomSettings");
-const scoreValue     = $("scoreValue");
 const topbarName     = $("topbarName");
 const topbarAvatar   = $("topbarAvatar");
 const logoutBtn      = $("logoutBtn");
@@ -607,14 +604,6 @@ function showWaitingScreen(room) {
     chatPanel.classList.remove("hidden-chat");
     lobbyView.classList.remove("hidden");
     timestopView.classList.add("hidden");
-
-    if (S.isHost) {
-        $("modeSelectorWrap").classList.remove("hidden");
-        roomSettings.classList.toggle("hidden", S.gameMode !== "classic");
-        startGameBtn.classList.remove("hidden");
-        soloBtn.classList.remove("hidden");
-        scoreValue.textContent = room.winScore;
-    }
 
     updateWaiting(room);
 }
