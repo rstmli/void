@@ -1547,3 +1547,350 @@ input {
         border-top: 1px solid var(--border);
     }
 }
+
+/* ══════════════════════════════════════
+   LOBBY GRADIENT BACKGROUND
+══════════════════════════════════════ */
+.lobby-view {
+    background: linear-gradient(135deg,
+        rgba(255,51,68,.06) 0%,
+        rgba(217,70,239,.04) 40%,
+        rgba(255,140,0,.03) 100%
+    );
+    min-height: calc(100vh - 60px);
+    padding: 48px 0 32px;
+}
+
+/* ══════════════════════════════════════
+   WAITING LAYOUT — sol + sağ panel
+══════════════════════════════════════ */
+.waiting-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 24px;
+    align-items: start;
+    margin-top: 32px;
+}
+
+.waiting-left {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* ══════════════════════════════════════
+   MOD SEÇİCİ
+══════════════════════════════════════ */
+.mode-selector {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+}
+
+.mode-sel-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+}
+
+.mode-sel-btns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.mode-sel-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--panel2);
+    color: var(--muted);
+    cursor: pointer;
+    transition: .15s;
+    text-align: left;
+}
+
+.mode-sel-btn span {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .5px;
+}
+
+.mode-sel-btn small {
+    display: block;
+    font-size: 10px;
+    color: var(--dim);
+    margin-top: 2px;
+}
+
+.mode-sel-btn svg { flex-shrink: 0; opacity: .6; }
+
+.mode-sel-btn:hover {
+    border-color: rgba(255,255,255,.15);
+    color: var(--text);
+}
+
+.mode-sel-btn.active {
+    border-color: var(--red);
+    background: rgba(255,51,68,.08);
+    color: var(--text);
+}
+
+.mode-sel-btn.active svg { opacity: 1; color: var(--red); }
+.mode-sel-btn.active span { color: var(--red); }
+
+/* ══════════════════════════════════════
+   SAĞ OYUNCU PANELİ
+══════════════════════════════════════ */
+.player-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    position: sticky;
+    top: 16px;
+}
+
+.player-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+}
+
+.player-panel-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.player-panel-count {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+    background: var(--surface);
+    padding: 2px 10px;
+    border-radius: 20px;
+}
+
+.player-panel-list {
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: calc(100vh - 300px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+
+/* Panel oyuncu satırı */
+.pp-player {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid transparent;
+    transition: .15s;
+}
+
+.pp-self {
+    background: rgba(255,255,255,.03);
+    border-color: rgba(255,255,255,.06);
+}
+
+.pp-ready {
+    background: rgba(0,232,122,.04);
+    border-color: rgba(0,232,122,.12);
+}
+
+.pp-empty {
+    opacity: .25;
+}
+
+.pp-avatar {
+    width: 34px; height: 34px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    display: grid; place-items: center;
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.pp-avatar-empty {
+    background: var(--surface) !important;
+    border-color: var(--border) !important;
+    color: var(--dim) !important;
+    font-size: 18px;
+    font-weight: 300;
+}
+
+.pp-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.pp-name {
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pp-name-empty { color: var(--dim); font-weight: 400; }
+
+.pp-tag {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.pp-status {
+    width: 24px; height: 24px;
+    display: grid; place-items: center;
+    flex-shrink: 0;
+}
+
+.pp-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--dim);
+    animation: breathe 2s ease-in-out infinite;
+}
+
+.pp-status-ready .pp-dot { background: var(--green); }
+
+/* ══════════════════════════════════════
+   LOBBY BOTTOM — waiting layout içinde
+══════════════════════════════════════ */
+.waiting-left .party-status {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+}
+
+/* ══════════════════════════════════════
+   SPECTATOR PANEL — oyun içi
+══════════════════════════════════════ */
+.spectator-bar {
+    position: fixed;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 200px;
+    background: rgba(8,9,13,.9);
+    border-left: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    padding: 60px 0 0;
+}
+
+.spectator-bar-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.spectator-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+}
+
+.spectator-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 4px;
+}
+
+.spectator-avatar {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    display: grid; place-items: center;
+    font-size: 12px;
+    font-weight: 700;
+    opacity: .5;
+}
+
+.spectator-name {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 500;
+}
+
+.spectator-elim-round {
+    font-size: 9px;
+    color: var(--dim);
+    margin-left: auto;
+}
+
+/* ══════════════════════════════════════
+   RESPONSIVE — waiting layout
+══════════════════════════════════════ */
+@media (max-width: 700px) {
+    .waiting-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .player-panel {
+        position: static;
+        max-height: 300px;
+    }
+
+    .spectator-bar {
+        width: 100%;
+        height: 140px;
+        top: auto;
+        left: 0;
+        right: 0;
+        bottom: 88px;
+        border-left: none;
+        border-top: 1px solid var(--border);
+        flex-direction: row;
+        padding: 0;
+    }
+
+    .spectator-bar-title { writing-mode: horizontal-tb; padding: 8px 12px; }
+
+    .spectator-list {
+        display: flex;
+        flex-direction: row;
+        gap: 8px;
+        padding: 8px;
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+
+    .spectator-item { flex-direction: column; min-width: 60px; text-align: center; }
+}

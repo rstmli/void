@@ -4,31 +4,27 @@ const generateCode         = require("../utils/generateCode");
 const { GAME }             = require("../config/ServerConfig");
 
 class RoomService {
-  constructor() {
-    this._rooms = new Map();
-  }
+  constructor() { this._rooms = new Map(); }
 
   createRoom() {
     let code;
     do { code = generateCode(); } while (this._rooms.has(code));
     const room = new Room(code);
     this._rooms.set(code, room);
-    console.log(`[Room] Oluşturuldu: ${code}`);
     return room;
   }
 
   findRoom(code)   { return this._rooms.get(code); }
-  deleteRoom(code) { this._rooms.delete(code); console.log(`[Room] Silindi: ${code}`); }
+  deleteRoom(code) { this._rooms.delete(code); }
 
   joinRoom(socketId, name, roomCode) {
     const room = this.findRoom(roomCode);
-    if (!room)                               return { success: false, error: "Oda tapılmadı" };
-    if (room.isFull)                         return { success: false, error: "Oda dolu" };
-    if (room.state !== ROOM_STATE.WAITING)   return { success: false, error: "Oyun başlamış" };
+    if (!room)                             return { success: false, error: "Oda tapılmadı" };
+    if (room.isFull)                       return { success: false, error: "Oda dolu" };
+    if (room.state !== ROOM_STATE.WAITING) return { success: false, error: "Oyun başlamış" };
 
     const player = new Player(socketId, name);
     room.addPlayer(player);
-    console.log(`[Room] ${name} → ${roomCode}`);
     return { success: true, player, room };
   }
 
@@ -44,15 +40,10 @@ class RoomService {
     if (!room) return {};
     const player = room.getPlayer(socketId);
     room.removePlayer(socketId);
-    console.log(`[Room] ${player?.name} ayrıldı: ${room.code}`);
     if (room.isEmpty) this.deleteRoom(room.code);
     return { room, player };
   }
 
-  /**
-   * Oyuncu hazır durumunu değiştir.
-   * @returns {boolean} güncel isReady değeri
-   */
   toggleReady(socketId) {
     const room = this.findRoomBySocket(socketId);
     if (!room) return false;
@@ -62,11 +53,6 @@ class RoomService {
     return player.isReady;
   }
 
-  /**
-   * Oda ayarlarını güncelle (sadece host yapabilir).
-   * @param {string} socketId — host'un socket'i
-   * @param {object} settings — { winScore }
-   */
   updateSettings(socketId, settings) {
     const room = this.findRoomBySocket(socketId);
     if (!room) return { success: false, error: "Oda tapılmadı" };
@@ -75,8 +61,14 @@ class RoomService {
 
     if (settings.winScore !== undefined) {
       const ws = parseInt(settings.winScore);
-      if (ws >= GAME.MIN_WIN_SCORE && ws <= GAME.MAX_WIN_SCORE) {
-        room.winScore = ws;
+      if (ws >= GAME.MIN_WIN_SCORE && ws <= GAME.MAX_WIN_SCORE) room.winScore = ws;
+    }
+
+    if (settings.gameMode !== undefined) {
+      if ([GAME.MODE_CLASSIC, GAME.MODE_ELIMINATION].includes(settings.gameMode)) {
+        room.gameMode = settings.gameMode;
+        // Mod değişince max player güncellenir — dolup taşan oyuncuları kontrol etmeye gerek yok
+        // çünkü classic → elim geçince max artar, sorun olmaz
       }
     }
 

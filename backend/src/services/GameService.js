@@ -3,14 +3,12 @@ const { GAME }       = require("../config/ServerConfig");
 
 class GameService {
   constructor(io) {
-    this.io                = io;
-    this._countdownTimers  = new Map();
+    this.io               = io;
+    this._countdownTimers = new Map();
+    this._afkTimers       = new Map();
   }
 
-  // ─── Countdown ─────────────────────────────────────────────────
-
   startCountdown(room) {
-    // Önceki timer varsa temizle
     this._clearTimer(room.code);
     room.setState(ROOM_STATE.COUNTDOWN);
 
@@ -31,8 +29,6 @@ class GameService {
     this._countdownTimers.set(room.code, id);
   }
 
-  // ─── Round start ───────────────────────────────────────────────
-
   _startRound(room) {
     room.prepareRound();
     room.setState(ROOM_STATE.PLAYING);
@@ -43,69 +39,57 @@ class GameService {
       players:  room.getPlayerList().map(p => p.toPublic()),
       active:   room.activePlayers,
       winScore: room.winScore,
+      gameMode: room.gameMode,
     });
 
-    console.log(`[Game] Tur ${room.round} | Hedef: ${room.target}s | ${room.code}`);
+    console.log(`[Game][${room.gameMode}] Tur ${room.round} | Hedef: ${room.target}s | Aktif: ${room.activeCount} | ${room.code}`);
 
-    // AFK guard: target + 10 saniye geçerse diskalifiye et ve oyunu bitir
+    // AFK guard
     const afkDeadline = (room.target + 10) * 1000;
     const afkTimer = setTimeout(() => {
       if (room.state !== ROOM_STATE.PLAYING) return;
-
       const afkPlayers = room.getActivePlayerList().filter(p => !p.hasStopped);
-      if (afkPlayers.length === 0) return;
+      if (!afkPlayers.length) return;
 
-      console.log(`[Game] AFK diskalifiye: ${afkPlayers.map(p=>p.name).join(", ")}`);
+      console.log(`[Game] AFK: ${afkPlayers.map(p=>p.name).join(", ")}`);
+      this._emit(room.code, "game:afk_disqualified", { names: afkPlayers.map(p=>p.name) });
 
-      // AFK oyuncuları bildir ve oyunu bitir
-      this._emit(room.code, "game:afk_disqualified", {
-        names: afkPlayers.map(p => p.name),
-      });
-
-      // Kalan aktif (stop basmış) oyuncu varsa o kazanır
       const remaining = room.getActivePlayerList().filter(p => p.hasStopped);
       if (remaining.length >= 1) {
-        // En iyi skoru olan veya tek kalan kazanır
         remaining.sort((a, b) => a.currentDiff - b.currentDiff);
         const winner = remaining[0];
-        winner.addPoints(1);
-        setTimeout(() => this._endGame(room, winner), 800);
+        if (room.gameMode === GAME.MODE_CLASSIC) winner.addPoints(1);
+        // Afk oyuncuları elime modunda elim et
+        if (room.gameMode === GAME.MODE_ELIMINATION) {
+          afkPlayers.forEach(p => { room.eliminatePlayer(p.socketId); p.elimRound = room.round; });
+        }
+        const champion = room.getChampion();
+        if (champion) setTimeout(() => this._endGame(room, champion), 800);
+        else this._endRound(room);
       } else {
-        // Kimse basmamış — tur sonucu göster, kazanan yok
         afkPlayers.forEach(p => p.stop(room.target + 10, room.target, GAME.PERFECT_THRESHOLD));
         this._endRound(room);
       }
     }, afkDeadline);
 
-    if (!this._afkTimers) this._afkTimers = new Map();
     this._afkTimers.set(room.code, afkTimer);
   }
-
-  // ─── Player stop ───────────────────────────────────────────────
 
   playerStop(room, player, stoppedAt) {
     if (room.state !== ROOM_STATE.PLAYING) return;
     if (player.hasStopped) return;
 
     player.stop(stoppedAt, room.target, GAME.PERFECT_THRESHOLD);
-
     this._emit(room.code, "game:player_stopped", { name: player.name });
-
     console.log(`[Game] ${player.name} durdu: ${stoppedAt.toFixed(3)}s | fark: ${player.currentDiff.toFixed(3)}s`);
 
-    if (room.allActiveStopped()) {
-      this._endRound(room);
-    }
+    if (room.allActiveStopped()) this._endRound(room);
   }
 
-  // ─── Round end ─────────────────────────────────────────────────
-
   _endRound(room) {
-    // AFK timer'ı temizle
-    if (this._afkTimers?.has(room.code)) {
-      clearTimeout(this._afkTimers.get(room.code));
-      this._afkTimers.delete(room.code);
-    }
+    // AFK timer temizle
+    const afk = this._afkTimers.get(room.code);
+    if (afk) { clearTimeout(afk); this._afkTimers.delete(room.code); }
 
     room.setState(ROOM_STATE.RESULT);
 
@@ -113,27 +97,29 @@ class GameService {
     const winner  = room.getRoundWinner();
     const tied    = winner === null;
 
-    // Puan ver
-    if (!tied && winner) {
-      const pts = winner.isPerfect ? 2 : 1;
-      winner.addPoints(pts);
-      console.log(`[Game] ${winner.name} +${pts} puan | perfect: ${winner.isPerfect}`);
-    }
-
-    // Elimination: 3+ aktif oyuncu varsa en kötüyü at
     let eliminated = null;
-    if (active.length >= GAME.ELIMINATION_MIN_PLAYERS) {
-      const worst = room.getWorstPlayer();
-      if (worst) {
-        room.eliminatePlayer(worst.socketId);
-        eliminated = worst.name;
-        console.log(`[Game] ${worst.name} elendi`);
+
+    if (room.gameMode === GAME.MODE_CLASSIC) {
+      // Classic: puan ver, elimination yok
+      if (!tied && winner) {
+        const pts = winner.isPerfect ? 2 : 1;
+        winner.addPoints(pts);
       }
+    } else {
+      // Elimination: puan yok, en kötü elenir
+      if (!tied) {
+        const worst = room.getWorstPlayer();
+        if (worst && active.length > 1) {
+          worst.elimRound = room.round;
+          room.eliminatePlayer(worst.socketId);
+          eliminated = worst.name;
+          console.log(`[Game] ${worst.name} elendi (tur ${room.round})`);
+        }
+      }
+      // Beraberlikte kimse elenmiyor
     }
 
-    const results = active
-      .map(p => p.toRoundResult())
-      .sort((a, b) => a.diff - b.diff);
+    const results = active.map(p => p.toRoundResult()).sort((a, b) => a.diff - b.diff);
 
     this._emit(room.code, "game:round_result", {
       round:      room.round,
@@ -145,64 +131,64 @@ class GameService {
       results,
       scores:     room.getPlayerList().map(p => p.toPublic()),
       remaining:  room.activePlayers,
+      gameMode:   room.gameMode,
     });
 
-    // Şampiyon kontrolü
     const champion = room.getChampion();
     if (champion) {
       setTimeout(() => this._endGame(room, champion), GAME.RESULT_DELAY_MS);
       return;
     }
 
-    // 1 aktif kaldıysa o kazandı
     if (room.activeCount === 1) {
       const last = room.getActivePlayerList()[0];
       setTimeout(() => this._endGame(room, last), GAME.RESULT_DELAY_MS);
     }
   }
 
-  // ─── Game end ──────────────────────────────────────────────────
-
   _endGame(room, champion) {
     room.setState(ROOM_STATE.FINISHED);
 
-    const finalScores = room.getPlayerList()
-      .map(p => p.toPublic())
-      .sort((a, b) => b.score - a.score);
+    let finalScores;
+    if (room.gameMode === GAME.MODE_ELIMINATION) {
+      // Elimination: eleniş sırasına göre sırala (son elenen = ikinci)
+      finalScores = room.getPlayerList()
+        .map(p => p.toPublic())
+        .sort((a, b) => {
+          // Kazanan en üstte
+          if (a.name === champion.name) return -1;
+          if (b.name === champion.name) return 1;
+          // Elimround büyük olan daha geç elendi = daha iyi
+          return (b.elimRound ?? 0) - (a.elimRound ?? 0);
+        });
+    } else {
+      finalScores = room.getPlayerList()
+        .map(p => p.toPublic())
+        .sort((a, b) => b.score - a.score);
+    }
 
     this._emit(room.code, "game:finished", {
       champion:    champion.name,
       finalScores,
+      gameMode:    room.gameMode,
     });
 
-    console.log(`[Game] Bitti | Şampiyon: ${champion.name} | ${room.code}`);
+    console.log(`[Game] Bitti | ${champion.name} | ${room.gameMode} | ${room.code}`);
   }
-
-  // ─── Abort ─────────────────────────────────────────────────────
 
   abortGame(room, playerName) {
     this._clearTimer(room.code);
     room.setState(ROOM_STATE.WAITING);
-    this._emit(room.code, "game:aborted", {
-      reason: `${playerName} oyundan ayrıldı`,
-      playerName,
-    });
+    this._emit(room.code, "game:aborted", { reason: `${playerName} oyundan ayrıldı`, playerName });
   }
 
-  // ─── Chat ──────────────────────────────────────────────────────
-
-  /**
-   * Chat mesajını odaya yayar.
-   */
   broadcastChat(room, senderName, message) {
     this._emit(room.code, "chat:message", {
       name:      senderName,
-      message:   message.slice(0, 200), // max 200 karakter
+      message:   message.slice(0, 200),
       timestamp: Date.now(),
     });
   }
-
-  // ─── Helpers ───────────────────────────────────────────────────
 
   _clearTimer(roomCode) {
     const id = this._countdownTimers.get(roomCode);

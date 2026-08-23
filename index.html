@@ -86,45 +86,71 @@
             </div>
         </div>
 
-        <!-- Oda ayarları (sadece host görür) -->
-        <div class="room-settings hidden" id="roomSettings">
-            <span class="settings-label">// ODA AYARLARI</span>
-            <div class="settings-row">
-                <label class="settings-key">QALIB PUANI</label>
-                <div class="score-picker">
-                    <button class="score-btn" id="scoreDown">−</button>
-                    <span id="scoreValue">3</span>
-                    <button class="score-btn" id="scoreUp">+</button>
+        <!-- Waiting layout: sol=ayarlar, sağ=oyuncu paneli -->
+        <div class="waiting-layout">
+
+            <!-- SOL TARAF -->
+            <div class="waiting-left">
+
+                <!-- MOD SEÇİMİ — sadece host -->
+                <div class="mode-selector hidden" id="modeSelectorWrap">
+                    <div class="mode-sel-label">OYUN MODU</div>
+                    <div class="mode-sel-btns">
+                        <button class="mode-sel-btn active" id="modeClassicBtn" data-mode="classic">
+                            <svg viewBox="0 0 20 20" fill="none" width="18" height="18"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4l3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                            <div><span>KLASSİK</span><small>Puan sistemi · 4 oyunçu</small></div>
+                        </button>
+                        <button class="mode-sel-btn" id="modeEliminationBtn" data-mode="elimination">
+                            <svg viewBox="0 0 20 20" fill="none" width="18" height="18"><path d="M10 2l2.4 5h5.2l-4.2 3.1 1.6 5.2L10 12.5l-5 2.8 1.6-5.2L2.4 7h5.2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+                            <div><span>ELİMİNASYA</span><small>Eleme modu · 12 oyunçu</small></div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Klasik: puan ayarı -->
+                <div class="room-settings hidden" id="roomSettings">
+                    <div class="settings-row">
+                        <label class="settings-key">QALIB PUANI</label>
+                        <div class="score-picker">
+                            <button class="score-btn" id="scoreDown">−</button>
+                            <span id="scoreValue">3</span>
+                            <button class="score-btn" id="scoreUp">+</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Status -->
+                <div class="party-status">
+                    <div class="status-icon">●</div>
+                    <div>
+                        <strong id="lobbyStatusText">Gözlənilir...</strong>
+                        <span id="lobbyStatusSub">Oyunçuları gözlə</span>
+                    </div>
+                </div>
+
+                <!-- Aksiyonlar -->
+                <div class="lobby-actions">
+                    <button class="ready-btn" id="readyBtn">HAZIR DEYİLƏM</button>
+                    <button class="play-button hidden" id="startGameBtn">
+                        <span>BAŞLA</span><span class="play-arrow">→</span>
+                    </button>
+                    <button class="solo-btn hidden" id="soloBtn">
+                        <span>SOLO ANTRENMAN</span>
+                    </button>
                 </div>
             </div>
-        </div>
 
-        <div class="players-section">
-            <div class="section-title">
-                <span>OYUNÇULAR</span>
-                <small id="playerCountLabel">1 / 4</small>
-            </div>
-            <div class="player-grid" id="playerGrid"></div>
-        </div>
-
-        <div class="lobby-bottom">
-            <div class="party-status">
-                <div class="status-icon">●</div>
-                <div>
-                    <strong id="lobbyStatusText">Gözlənilir...</strong>
-                    <span id="lobbyStatusSub">Oyunçuları gözlə</span>
+            <!-- SAĞ PANEL -->
+            <div class="player-panel">
+                <div class="player-panel-header">
+                    <span class="player-panel-title">OYUNÇULAR</span>
+                    <span class="player-panel-count" id="playerCountLabel">1 / 4</span>
                 </div>
+                <div class="player-panel-list" id="playerGrid"></div>
             </div>
-            <div class="lobby-actions">
-                <button class="ready-btn" id="readyBtn">HAZIR DEYİLƏM</button>
-                <button class="play-button hidden" id="startGameBtn">
-                    <span>BAŞLA</span><span class="play-arrow">→</span>
-                </button>
-                <button class="solo-btn hidden" id="soloBtn">
-                    <span>SOLO ANTRENMAN</span>
-                </button>
-            </div>
-        </div>
+
+        </div><!-- /waiting-layout -->
+
     </div>
 </section>
 
@@ -168,6 +194,9 @@ const SERVER_URL   = "http://52.59.244.144:3001";
 const stopSound = new Audio("audio/button music.mp3");
 stopSound.volume = 0.6;
 
+const winSound = new Audio("audio/win.mp3");
+winSound.volume = 0.7;
+
 function playStopSound() {
     // Aynı ses tekrar tetiklenince baştan başlat
     stopSound.currentTime = 0;
@@ -189,10 +218,12 @@ function playerColor(nameOrIndex) {
    APP STATE
 ════════════════════════════════════════════════════════════ */
 const S = {
-    myName:    "",
-    roomCode:  "",
-    isHost:    false,
-    winScore:  3,
+    myName:       "",
+    roomCode:     "",
+    isHost:       false,
+    gameMode:     "classic",
+    winScore:     3,
+    activePlayers: [],
     round:     0,
     target:    0,
     players:   [],
@@ -348,22 +379,24 @@ function showWaitingScreen(room) {
 }
 
 function updateWaiting(room) {
-    S.winScore = room.winScore;
-    scoreValue.textContent = room.winScore;
-    playerCountLbl.textContent = `${room.players.length} / 4`;
+    S.winScore  = room.winScore;
+    S.gameMode  = room.gameMode;
+    scoreValue.textContent     = room.winScore;
+    playerCountLbl.textContent = `${room.players.length} / ${room.maxPlayers}`;
     waitingCode.textContent    = room.code;
 
-    // Host güncelle
     S.isHost = room.players.find(p => p.name === S.myName)?.isHost ?? false;
+
     if (S.isHost) {
-        roomSettings.classList.remove("hidden");
+        $("modeSelectorWrap").classList.remove("hidden");
+        roomSettings.classList.toggle("hidden", room.gameMode !== "classic");
         startGameBtn.classList.remove("hidden");
         soloBtn.classList.remove("hidden");
-    }
-
-    // Host kendi hazır butonuna ihtiyaç duymaz
-    if (S.isHost) {
         readyBtn.classList.add("hidden");
+
+        // Mod buton aktif durumu
+        $("modeClassicBtn").classList.toggle("active", room.gameMode === "classic");
+        $("modeEliminationBtn").classList.toggle("active", room.gameMode === "elimination");
     } else {
         readyBtn.classList.remove("hidden");
         const myPlayer = room.players.find(p => p.name === S.myName);
@@ -376,48 +409,56 @@ function updateWaiting(room) {
         }
     }
 
+    // SAĞ PANEL — oyuncu listesi (kart değil, satır)
+    const maxSlots = room.maxPlayers;
     playerGrid.innerHTML = room.players.map((p, i) => {
-        const isSelf   = p.name === S.myName;
-        const readyCls = (p.isHost || p.isReady) ? "ready" : "";
-        const connCls  = p.connected === false ? "disconnected" : "";
+        const isSelf  = p.name === S.myName;
+        const color   = PLAYER_COLORS[i] ?? PLAYER_COLORS[3];
+        const isReady = p.isHost || p.isReady;
         return `
-        <div class="player-card current-player ${readyCls} ${connCls}">
-            <div class="player-number">0${i+1}</div>
-            <div class="player-avatar big">${p.name.charAt(0).toUpperCase()}</div>
-            <div class="player-details">
-                <span class="player-label">${p.isHost ? "HOST" : isSelf ? "SƏN" : "OYUNÇU"}</span>
-                <strong>${p.name}</strong>
-                <span class="player-state ${readyCls}">${p.isHost ? "✓ HOST" : p.isReady ? "✓ HAZIR" : "GÖZLƏNILIR"}</span>
+        <div class="pp-player ${isSelf ? "pp-self" : ""} ${isReady ? "pp-ready" : ""}">
+            <div class="pp-avatar" style="background:${color}20; border-color:${color}40; color:${color}">
+                ${p.name.charAt(0).toUpperCase()}
             </div>
-            <div class="online-dot ${(p.isHost || p.isReady) ? "dot-ready" : ""}"></div>
+            <div class="pp-info">
+                <span class="pp-name" style="${isSelf ? `color:${color}` : ""}">${p.name}</span>
+                <span class="pp-tag">${p.isHost ? "HOST" : isSelf ? "SƏN" : "OYUNÇU"}</span>
+            </div>
+            <div class="pp-status ${isReady ? "pp-status-ready" : ""}">
+                ${isReady
+                    ? `<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-6" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+                    : `<span class="pp-dot"></span>`
+                }
+            </div>
         </div>`;
     }).join("");
 
     // Boş slotlar
-    for (let i = room.players.length; i < 4; i++) {
+    for (let i = room.players.length; i < maxSlots; i++) {
         playerGrid.innerHTML += `
-        <div class="player-card" style="opacity:.2">
-            <div class="plus" style="margin:auto;margin-top:40px">+</div>
+        <div class="pp-player pp-empty">
+            <div class="pp-avatar pp-avatar-empty">+</div>
+            <div class="pp-info"><span class="pp-name pp-name-empty">Boş slot</span></div>
         </div>`;
     }
 
-    // Status — host hazır sayılır
-    const nonHostPlayers = room.players.filter(p => !p.isHost);
-    const readyCount     = nonHostPlayers.filter(p => p.isReady).length;
-    const allNonHostReady = nonHostPlayers.length === 0 || readyCount === nonHostPlayers.length;
+    // Status
+    const nonHost     = room.players.filter(p => !p.isHost);
+    const readyCount  = nonHost.filter(p => p.isReady).length;
+    const allReady    = nonHost.length === 0 || readyCount === nonHost.length;
 
     if (room.players.length < 2) {
         lobbyStatus.textContent    = "Ən az 2 oyunçu lazımdır";
         lobbyStatusSub.textContent = `${room.players.length}/2 qoşulub`;
-    } else if (!allNonHostReady) {
+    } else if (!allReady) {
         lobbyStatus.textContent    = "Oyunçular hazır deyil";
-        lobbyStatusSub.textContent = `${readyCount}/${nonHostPlayers.length} hazır`;
+        lobbyStatusSub.textContent = `${readyCount}/${nonHost.length} hazır`;
     } else {
         lobbyStatus.textContent    = "Hazır! Host başladacaq";
-        lobbyStatusSub.textContent = "Bütün oyunçular hazırdır";
+        lobbyStatusSub.textContent = `${room.gameMode === "elimination" ? "Eleme modu" : "Klassik mod"} · ${room.players.length} oyunçu`;
     }
 
-    startGameBtn.disabled = room.players.length < 2 || !allNonHostReady;
+    startGameBtn.disabled = room.players.length < 2 || !allReady;
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -546,6 +587,14 @@ $("scoreUp").addEventListener("click", () => {
     }
 });
 
+// Mod seçimi — sadece host
+$("modeClassicBtn")?.addEventListener("click", () => {
+    socket.emit("room:settings", { gameMode: "classic" });
+});
+$("modeEliminationBtn")?.addEventListener("click", () => {
+    socket.emit("room:settings", { gameMode: "elimination" });
+});
+
 /* ════════════════════════════════════════════════════════════
    SOCKET EVENTS — ROOM
 ════════════════════════════════════════════════════════════ */
@@ -579,13 +628,15 @@ socket.on("game:countdown", ({ count }) => {
     renderCountdown(count);
 });
 
-socket.on("game:round_start", ({ round, target, players, winScore }) => {
-    S.round     = round;
-    S.target    = target;
-    S.players   = players;
-    S.winScore  = winScore;
-    S.startTime = performance.now();
-    S.running   = true;
+socket.on("game:round_start", ({ round, target, players, winScore, gameMode, active }) => {
+    S.round          = round;
+    S.target         = target;
+    S.players        = players;
+    S.winScore       = winScore;
+    S.gameMode       = gameMode || "classic";
+    S.activePlayers  = active || players.map(p => p.name);
+    S.startTime      = performance.now();
+    S.running        = true;
     renderRound();
 });
 
@@ -598,6 +649,14 @@ socket.on("game:round_result", (data) => {
     S.running = false;
     cancelAnimationFrame(S.rafId);
     document.removeEventListener("keydown", S.keyHandler);
+    // Scores'dan isEliminated bilgisini S.players'a sync et
+    if (data.scores) {
+        data.scores.forEach(sc => {
+            const p = S.players.find(x => x.name === sc.name);
+            if (p) { p.score = sc.score; p.isEliminated = sc.isEliminated; p.elimRound = sc.elimRound; }
+        });
+    }
+    S.activePlayers = data.remaining || [];
     renderRoundResult(data);
 });
 
@@ -714,10 +773,10 @@ function renderRound() {
     const seats = reordered.map((p, i) => {
         const self      = p.name === S.myName;
         const pos       = allPos[i] || "top";
-        // Renk: reordered dizisindeki orijinal index'e göre
-        // 0=yeşil(host), 1=mavi, 2=turuncu, 3=kırmızı
         const origIdx   = S.players.indexOf(p);
         const colorIdx  = origIdx >= 0 ? origIdx : i;
+        // Elenmiş oyuncuları masada gösterme
+        if (p.isEliminated) return "";
         return `
         <div class="ts-seat ts-seat-${pos} player-color-${colorIdx}" data-name="${p.name}">
             <i data-lucide="armchair" class="ts-chair-icon${self?" chair-self":""}"></i>
@@ -733,15 +792,36 @@ function renderRound() {
         </div>`;
     }).join("");
 
+    // Seyirci paneli — elimination modda elenmiş oyuncular
+    const spectators    = S.players.filter(p => p.isEliminated);
+    const spectatorHtml = spectators.length ? `
+        <div class="spectator-bar" id="spectatorBar">
+            <div class="spectator-bar-title">SEYİRÇİLƏR</div>
+            <div class="spectator-list">
+                ${spectators.map(p => {
+                    const color = playerColor(p.name);
+                    return `
+                    <div class="spectator-item">
+                        <div class="spectator-avatar" style="background:${color}20;color:${color}">
+                            ${p.name.charAt(0).toUpperCase()}
+                        </div>
+                        <span class="spectator-name">${p.name}</span>
+                        <span class="spectator-elim-round">TUR ${p.elimRound ?? "?"}</span>
+                    </div>`;
+                }).join("")}
+            </div>
+        </div>` : "";
+
     timestopView.innerHTML = `
         <div class="ts-game-header">
             <button class="ts-back-btn" id="tsBackBtn">← GERİ</button>
             <span class="ts-eyebrow">TIME STOP — TUR ${S.round}</span>
             <span class="ts-eyebrow" style="color:var(--muted)">
-                ${isSolo ? "ANTRENMAN" : `İLK ${S.winScore} QALIB`}
+                ${isSolo ? "ANTRENMAN" : S.gameMode === "elimination" ? `SON ${S.activePlayers?.length ?? "?"} QALDI` : `İLK ${S.winScore} QALIB`}
             </span>
         </div>
-        <div class="ts-table-scene ts-scene-game" id="tsScene">
+        <div class="ts-table-scene ts-scene-game" id="tsScene"
+             style="${spectators.length ? "margin-right:200px" : ""}">
             ${seats}
             <div class="ts-table-surface">
                 <div class="ts-table-center">
@@ -751,6 +831,7 @@ function renderRound() {
                 </div>
             </div>
         </div>
+        ${spectatorHtml}
         <!-- Mobil stop bar -->
         <div class="mobile-stop-bar" id="mobileStopBar">
             <button class="mobile-stop-btn player-color-0" id="mobileStopBtn"
@@ -979,6 +1060,7 @@ function renderFinal({ champion, finalScores }) {
     }).join("");
 
     const isSelf      = champion === S.myName;
+    if (isSelf) { winSound.currentTime = 0; winSound.play().catch(()=>{}); }
     const champColor  = playerColor(champion);
     const winnerClass = isSelf ? "ts-winner-box ts-winner-self" : "ts-winner-box";
 
