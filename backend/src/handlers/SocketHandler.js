@@ -1,4 +1,5 @@
 const roomService    = require("../services/RoomService");
+const { validateName } = require("../services/RoomService");
 const { ROOM_STATE } = require("../models/Room");
 const { GAME }       = require("../config/ServerConfig");
 
@@ -17,13 +18,27 @@ class SocketHandler {
 
   _registerRoomEvents(socket) {
 
-    socket.on("room:create", ({ name }) => {
+    socket.on("room:create", ({ name, roomName, gameMode, winScore }) => {
       if (!name?.trim()) return socket.emit("error", { message: "Ad boş ola bilməz" });
-      const room   = roomService.createRoom();
-      const result = roomService.joinRoom(socket.id, name.trim(), room.code);
+      if (!roomName?.trim()) return socket.emit("error", { message: "Oda adı boş ola bilməz" });
+      
+      // Room name validation
+      const roomNameValidation = validateName(roomName.trim());
+      if (!roomNameValidation.valid) return socket.emit("error", { message: roomNameValidation.error });
+      
+      const createResult = roomService.createRoom(
+        roomNameValidation.name, 
+        gameMode || "classic", 
+        winScore || 3
+      );
+      
+      if (!createResult.success) return socket.emit("error", { message: createResult.error });
+      
+      const result = roomService.joinRoom(socket.id, name.trim(), createResult.room.code);
       if (!result.success) return socket.emit("error", { message: result.error });
-      socket.join(room.code);
-      socket.emit("room:created", { code: room.code, room: room.toPublic() });
+      
+      socket.join(createResult.room.code);
+      socket.emit("room:created", { code: createResult.room.code, room: createResult.room.toPublic() });
     });
 
     socket.on("room:join", ({ name, code }) => {

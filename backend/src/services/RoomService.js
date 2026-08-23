@@ -27,12 +27,22 @@ function sanitizeMessage(msg) {
 class RoomService {
   constructor() { this._rooms = new Map(); }
 
-  createRoom() {
+  createRoom(roomName, gameMode = "classic", winScore = 3) {
+    // Oda ismi unique check
+    const nameTaken = Array.from(this._rooms.values()).some(r => 
+      r.roomName.toLowerCase() === roomName.toLowerCase()
+    );
+    if (nameTaken) return { success: false, error: "Bu oda adı artıq istifadə olunur" };
+    
     let code;
     do { code = generateCode(); } while (this._rooms.has(code));
-    const room = new Room(code);
+    
+    const room = new Room(code, roomName);
+    room.gameMode = gameMode;
+    room.winScore = winScore;
+    
     this._rooms.set(code, room);
-    return room;
+    return { success: true, room };
   }
 
   findRoom(code)   { return this._rooms.get(code); }
@@ -134,3 +144,4 @@ class RoomService {
 
 module.exports = new RoomService();
 module.exports.sanitizeMessage = sanitizeMessage;
+module.exports.validateName = validateName;

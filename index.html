@@ -110,6 +110,67 @@
         <div class="join-error hidden" id="menuError"></div>
     </div>
 
+    <!-- ═══════════════ CREATE ROOM MODAL ═══════════════ -->
+    <div class="modal-overlay hidden" id="createRoomModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>ODA YARAT</h2>
+                <button class="modal-close" id="modalCloseBtn">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="join-field">
+                    <label class="join-label">ODA ADI</label>
+                    <input type="text" id="roomNameInput" class="join-input"
+                        placeholder="Mənim odam..." maxlength="24" autocomplete="off"/>
+                </div>
+
+                <div class="modal-section">
+                    <label class="join-label">OYUN MODU</label>
+                    <div class="mode-select-grid">
+                        <button class="mode-select-card active" data-mode="classic">
+                            <div class="mode-select-icon">
+                                <i data-lucide="clock"></i>
+                            </div>
+                            <div class="mode-select-info">
+                                <strong>KLASSİK</strong>
+                                <span>Puan sistemi · 4 oyunçu</span>
+                            </div>
+                        </button>
+                        <button class="mode-select-card" data-mode="elimination">
+                            <div class="mode-select-icon">
+                                <i data-lucide="zap"></i>
+                            </div>
+                            <div class="mode-select-info">
+                                <strong>ELİMİNASYA</strong>
+                                <span>Eleme modu · 12 oyunçu</span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="modal-section" id="modalWinScoreSection">
+                    <label class="join-label">QALİB PUANI</label>
+                    <div class="score-picker">
+                        <button class="score-btn" id="modalScoreDown">−</button>
+                        <span id="modalScoreValue">3</span>
+                        <button class="score-btn" id="modalScoreUp">+</button>
+                    </div>
+                </div>
+
+                <div class="join-error hidden" id="modalError"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-secondary" id="modalCancelBtn">İMTİNA</button>
+                <button class="modal-btn modal-btn-primary" id="modalCreateBtn">
+                    <span>YARAT</span>
+                    <i data-lucide="arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- ═══════════════ JOIN CODE INPUT ═══════════════ -->
     <div id="joinCodeScreen" class="hidden">
         <div class="lobby-header">
@@ -140,7 +201,7 @@
     <div id="waitingScreen" class="hidden">
         <div class="lobby-header">
             <div>
-                <span class="eyebrow">PRIVATE PARTY</span>
+                <span class="eyebrow" id="waitingRoomName">—</span>
                 <h1>Komandanı<br><span>gözlə.</span></h1>
                 <p>Dostlarına oda kodunu göndər.</p>
             </div>
@@ -431,25 +492,26 @@ function dotsHtmlColored(score, max, color) {
 
 /**
  * N oyuncu için daire çevresindeki pozisyonları hesaplar.
- * Kendim her zaman alta (270°) yerleşir, diğerleri eşit aralıklarla.
+ * Kendim her zaman ALTTA (saat 6 pozisyonunda), diğerleri eşit aralıklarla.
  * @param {number} total   — toplam aktif oyuncu sayısı
- * @param {number} myIndex — kendi sıram (0 = alta)
+ * @param {number} myIndex — kendi sıram (0 = altta)
  * @param {number} radius  — daireden uzaklık (%)
  * returns { x, y, angle }[]
  */
 function calcSeatPositions(total, myIndex, radius) {
     const positions = [];
-    // CSS koordinat sistemi: Y aşağıya büyür
-    // Ben altta olacaksam startAngle = 90° (sin(90°)=1 → y pozitif → aşağı)
-    const startAngle = 90;
+    // Ben saat 6'da (270°), diğerleri saat yönünün tersine eşit aralıklı
+    // 0° = sağ (3'te), 90° = alt (6'da), 180° = sol (9'da), 270° = üst (12'de)
+    const startAngle = 90; // Ben alt
+    
     for (let i = 0; i < total; i++) {
-        const angle = (startAngle + (360 / total) * i) % 360;
-        const rad   = (angle * Math.PI) / 180;
-        // Eliptik — yatayda biraz daha geniş
-        const rx = radius * 0.90;
-        const ry = radius * 0.75;
-        const x  = Math.cos(rad) * rx;
-        const y  = Math.sin(rad) * ry;
+        const angle = startAngle + (360 / total) * i;
+        const rad = (angle * Math.PI) / 180;
+        
+        // TAM YUVARLAK DAİRE — elips değil
+        const x = Math.cos(rad) * radius;
+        const y = Math.sin(rad) * radius;
+        
         positions.push({ x, y, angle });
     }
     return positions;
@@ -516,6 +578,7 @@ function updateWaiting(room) {
     const activePlayersCount = room.players.filter(p => !p.hasLeft).length;
     playerCountLbl.textContent = `${activePlayersCount} / ${room.maxPlayers}`;
     waitingCode.textContent    = room.code;
+    $("waitingRoomName").textContent = room.roomName || room.code;
 
     S.isHost = room.players.find(p => p.name === S.myName)?.isHost ?? false;
 
@@ -760,10 +823,81 @@ $("playerNameInput").addEventListener("keydown", e => {
     if (e.code === "Enter") $("nameSubmitBtn").click(); 
 });
 
-// Menu screen — Oda yarat
+// Menu screen — Oda yarat (modal aç)
 $("createRoomBtn").addEventListener("click", () => {
-    socket.emit("room:create", { name: S.myName });
+    $("createRoomModal").classList.remove("hidden");
+    $("roomNameInput").value = `${S.myName}'ın odam`;
+    $("roomNameInput").focus();
+    lucide.createIcons();
 });
+
+// Modal kapatma
+$("modalCloseBtn").addEventListener("click", closeModal);
+$("modalCancelBtn").addEventListener("click", closeModal);
+$("createRoomModal").addEventListener("click", (e) => {
+    if (e.target.id === "createRoomModal") closeModal();
+});
+
+function closeModal() {
+    $("createRoomModal").classList.add("hidden");
+}
+
+// Modal içinde mod seçimi
+document.querySelectorAll(".mode-select-card").forEach(card => {
+    card.addEventListener("click", () => {
+        document.querySelectorAll(".mode-select-card").forEach(c => c.classList.remove("active"));
+        card.classList.add("active");
+        const mode = card.dataset.mode;
+        $("modalWinScoreSection").style.display = mode === "classic" ? "flex" : "none";
+    });
+});
+
+// Modal win score buttons
+let modalScore = 3;
+$("modalScoreDown").addEventListener("click", () => {
+    if (modalScore > 3) {
+        modalScore--;
+        $("modalScoreValue").textContent = modalScore;
+    }
+});
+$("modalScoreUp").addEventListener("click", () => {
+    if (modalScore < 10) {
+        modalScore++;
+        $("modalScoreValue").textContent = modalScore;
+    }
+});
+
+// Modal oda yarat butonu
+$("modalCreateBtn").addEventListener("click", () => {
+    const roomName = $("roomNameInput").value.trim();
+    if (!roomName) return showError("Oda adı daxil et", "modal");
+    
+    const validation = validateName(roomName);
+    if (!validation.valid) return showError(validation.error, "modal");
+    
+    const mode = document.querySelector(".mode-select-card.active").dataset.mode;
+    const winScore = mode === "classic" ? modalScore : 3;
+    
+    // Server'a gönder
+    socket.emit("room:create", { 
+        name: S.myName, 
+        roomName: validation.name,
+        gameMode: mode,
+        winScore: winScore
+    });
+    
+    closeModal();
+});
+
+function showError(msg, target = "menu") {
+    const errorEl = target === "name" ? nameError 
+                  : target === "join" ? joinError 
+                  : target === "modal" ? $("modalError")
+                  : menuError;
+    errorEl.textContent = msg;
+    errorEl.classList.remove("hidden");
+    setTimeout(() => errorEl.classList.add("hidden"), 4000);
+}
 
 // Menu screen — Oda koduna katıl ekranına geç
 $("joinRoomCardBtn").addEventListener("click", () => {

@@ -9,8 +9,9 @@ const ROOM_STATE = {
 };
 
 class Room {
-  constructor(code) {
+  constructor(code, roomName = null) {
     this.code          = code;
+    this.roomName      = roomName || code; // Unique oda ismi
     this.state         = ROOM_STATE.WAITING;
     this.players       = new Map();
     this.round         = 0;
@@ -113,14 +114,15 @@ class Room {
 
   toPublic() {
     return {
-      code:      this.code,
-      state:     this.state,
-      round:     this.round,
-      winScore:  this.winScore,
-      gameMode:  this.gameMode,
+      code:       this.code,
+      roomName:   this.roomName,
+      state:      this.state,
+      round:      this.round,
+      winScore:   this.winScore,
+      gameMode:   this.gameMode,
       maxPlayers: this.maxPlayers,
-      players:   this.getPlayerList().map(p => p.toPublic()),
-      active:    this.activePlayers,
+      players:    this.getPlayerList().map(p => p.toPublic()),
+      active:     this.activePlayers,
     };
   }
 }
