@@ -23,6 +23,9 @@
         <button class="nav-item">REYTİNQ</button>
     </nav>
     <div class="profile">
+        <button class="change-name-btn hidden" id="changeNameBtn" title="Adını dəyiş">
+            <i data-lucide="edit-2"></i>
+        </button>
         <div class="profile-info">
             <span class="profile-name" id="topbarName">—</span>
             <span class="profile-status">ONLINE</span>
@@ -465,22 +468,27 @@ const chatMessages   = $("chatMessages");
 const chatInput      = $("chatInput");
 
 /* ════════════════════════════════════════════════════════════
-   PERSISTENCE — isim tarayıcı kapanana kadar tutulur
+   PERSISTENCE — isim kalıcı localStorage'da tutulur
 ════════════════════════════════════════════════════════════ */
 function loadSavedName() {
-    const saved = sessionStorage.getItem(STORAGE_KEY);
+    const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-        $("playerNameInput").value = saved;
-        // Otomatik oda ekranına geçme — kullanıcı hâlâ girmeyi onaylamalı
+        S.myName = saved;
+        updateTopbar(saved);
+        // Direkt menüye geç
+        nameScreen.classList.add("hidden");
+        menuScreen.classList.remove("hidden");
+        $("menuPlayerName").textContent = saved;
+        lucide.createIcons();
     }
 }
 
 function saveName(name) {
-    sessionStorage.setItem(STORAGE_KEY, name);
+    localStorage.setItem(STORAGE_KEY, name);
 }
 
 function clearName() {
-    sessionStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEY);
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -497,6 +505,7 @@ function updateTopbar(name) {
     topbarName.textContent   = name;
     topbarAvatar.textContent = name && name !== "—" ? name.charAt(0).toUpperCase() : "?";
     logoutBtn.style.display  = name && name !== "—" ? "grid" : "none";
+    $("changeNameBtn").style.display = name && name !== "—" ? "grid" : "none";
 }
 
 /** Süre farkını okunabilir formatta döner */
@@ -1044,6 +1053,32 @@ $("copyCodeBtn").addEventListener("click", () => {
         btn.classList.add("copied");
         setTimeout(() => btn.classList.remove("copied"), 1500);
     });
+});
+
+// Change name butonu
+$("changeNameBtn").addEventListener("click", () => {
+    clearName();
+    S.myName = "";
+    S.roomCode = "";
+    
+    // Odadan çık
+    if (socket.connected && S.roomCode) {
+        socket.disconnect();
+        socket.connect();
+    }
+    
+    // Name screen'e dön
+    waitingScreen.classList.add("hidden");
+    timestopView.classList.add("hidden");
+    menuScreen.classList.add("hidden");
+    joinCodeScreen.classList.add("hidden");
+    nameScreen.classList.remove("hidden");
+    lobbyView.classList.remove("hidden");
+    
+    updateTopbar("—");
+    chatPanel.classList.add("hidden-chat");
+    $("playerNameInput").value = "";
+    $("playerNameInput").focus();
 });
 
 // Çıkış

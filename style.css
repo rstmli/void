@@ -192,6 +192,19 @@ input {
     font-weight: 700;
 }
 
+.change-name-btn {
+    width: 32px; height: 32px;
+    display: none;
+    place-items: center;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    transition: .15s;
+    cursor: pointer;
+}
+.change-name-btn:hover { color: var(--green); border-color: var(--green); }
+.change-name-btn svg { width: 14px; height: 14px; }
+
 .logout-btn {
     width: 32px; height: 32px;
     display: none;
@@ -1855,13 +1868,14 @@ input {
 
 /* ══════════════════════════════════════
    CHAT PANEL
+/* ══════════════════════════════════════
+   CHAT PANEL — SOL ALTA SABİT
 ══════════════════════════════════════ */
 .chat-panel {
     position: fixed;
     bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: min(520px, calc(100vw - 48px));
+    left: 20px;
+    width: 340px;
     z-index: 100;
     background: rgba(8,9,13,.96);
     border: 1px solid var(--border);
@@ -1869,7 +1883,7 @@ input {
     border-radius: var(--radius);
     display: flex;
     flex-direction: column;
-    max-height: 340px;
+    max-height: 380px;
     backdrop-filter: blur(20px);
     transition: max-height .2s ease, opacity .2s;
     box-shadow: 0 8px 32px rgba(0,0,0,.4);
@@ -2194,16 +2208,15 @@ input {
     .ts-podium-row  { grid-template-columns: 28px 1fr 64px; gap: 8px; }
     .ts-winner-name { font-size: 24px !important; }
 
-    /* Chat */
+    /* Chat — sol alt */
     .chat-panel {
-        width: calc(100vw - 24px);
-        left: 50%;
-        transform: translateX(-50%);
-        bottom: 12px;
-        max-height: 240px;
-        border-radius: var(--radius);
+        width: calc(100vw - 32px);
+        left: 16px;
+        bottom: 16px;
+        max-height: 280px;
     }
-    .chat-input { font-size: 16px; } /* iOS zoom önle */
+    
+    .chat-panel.chat-collapsed { max-height: 40px; }
 
     /* Oyun sırasında chat stop bar üstünde */
     body:has(.timestop-view:not(.hidden)) .chat-panel { bottom: 100px; }
