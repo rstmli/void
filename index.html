@@ -549,12 +549,24 @@ function openColorPicker(e) {
     // Varsa eski picker'ı kapat
     document.getElementById("colorPickerPopup")?.remove();
 
-    const usedColors = S.players
-        .filter(p => p.name !== S.myName)
+    // Room.players-dan yoxsa S.players-dan götür
+    const allPlayers = (typeof updateWaiting !== 'undefined' && waitingScreen && !waitingScreen.classList.contains('hidden'))
+        ? Array.from(document.querySelectorAll('.pp-player')).map(el => {
+            const nameEl = el.querySelector('.pp-name');
+            const dotEl = el.querySelector('.pp-color-dot');
+            if (!nameEl || !dotEl) return null;
+            const name = nameEl.textContent.replace(' ✎', '').trim();
+            const color = dotEl.style.background;
+            return { name, color };
+        }).filter(Boolean)
+        : S.players;
+
+    const usedColors = allPlayers
+        .filter(p => p.name !== S.myName && p.color)
         .map(p => p.color)
         .filter(Boolean);
 
-    const myColor = S.players.find(p => p.name === S.myName)?.color || PLAYER_COLORS[0];
+    const myColor = allPlayers.find(p => p.name === S.myName)?.color || PLAYER_COLORS[0];
 
     const swatches = PLAYER_COLORS.map(c => {
         const inUse = usedColors.includes(c);
@@ -976,7 +988,7 @@ function renderRound() {
         <div class="ts-seat ts-seat-circle player-color-${colorIdx}" data-name="${p.name}"
              style="left:calc(50% + ${pos.x.toFixed(1)}%); top:calc(50% + ${pos.y.toFixed(1)}%); transform:translate(-50%,-50%)">
             <i data-lucide="armchair" class="ts-chair-icon${self?" chair-self":""}"></i>
-            <div class="ts-seat-score">${dotsHtml(p.score, S.winScore)}</div>
+            ${S.gameMode !== "elimination" ? `<div class="ts-seat-score">${dotsHtml(p.score, S.winScore)}</div>` : ""}
             <div class="ts-seat-name ${self?"ts-name-self":""}">${self?"SƏN · ":""}${p.name}</div>
             <button class="ts-stop-btn ${self?"ts-btn-self":"ts-btn-other"}" data-name="${p.name}"
                     ${self?"":"disabled"}>
