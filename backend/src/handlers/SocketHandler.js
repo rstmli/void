@@ -141,31 +141,57 @@ class SocketHandler {
 
   _registerDisconnect(socket) {
     socket.on("disconnect", () => {
-      const { room, player } = roomService.leaveRoom(socket.id);
-      if (!room || !player) return;
+      const room = roomService.findRoomBySocket(socket.id);
+      if (!room) return;
+      
+      const player = room.getPlayer(socket.id);
+      if (!player) return;
 
       const inGame = [ROOM_STATE.PLAYING, ROOM_STATE.COUNTDOWN, ROOM_STATE.RESULT].includes(room.state);
 
-      if (!room.isEmpty) {
+      if (inGame) {
+        // Oyun sırasında ayrıldı — oyuncuyu işaretle, odadan çıkarma
+        player.hasLeft = true;
+        player.connected = false;
+        
         this.io.to(room.code).emit("chat:system", {
-          message: `${player.name} oyundan ayrıldı`,
+          message: `${player.name} odadan ayrıldı`,
           type:    "leave",
         });
 
-        if (inGame) {
-          if (room.playerCount === 1) {
-            const last = room.getPlayerList()[0];
+        // Oyuncu listesini güncelle
+        this.io.to(room.code).emit("room:player_left", {
+          name: player.name,
+          room: room.toPublic(),
+        });
+
+        // Aktif oyunculardan çıkar (eğer aktifse)
+        if (room.activePlayers.includes(socket.id)) {
+          room.activePlayers = room.activePlayers.filter(id => id !== socket.id);
+          player.isEliminated = true;
+        }
+
+        // Eğer sadece 1 aktif oyuncu kaldıysa
+        if (room.activeCount === 1 && room.state === ROOM_STATE.PLAYING) {
+          const last = room.getActivePlayerList()[0];
+          if (last && !last.hasLeft) {
             this.io.to(room.code).emit("game:last_standing", {
               name:   last.name,
               reason: `${player.name} oyundan ayrıldı`,
             });
-          } else {
-            this.gameService.abortGame(room, player.name);
           }
-        } else {
-          this.io.to(room.code).emit("room:player_left", {
+        }
+      } else {
+        // Oyun dışında — odadan tamamen çıkar
+        const { room: updatedRoom } = roomService.leaveRoom(socket.id);
+        if (updatedRoom && !updatedRoom.isEmpty) {
+          this.io.to(updatedRoom.code).emit("chat:system", {
+            message: `${player.name} odadan ayrıldı`,
+            type:    "leave",
+          });
+          this.io.to(updatedRoom.code).emit("room:player_left", {
             name: player.name,
-            room: room.toPublic(),
+            room: updatedRoom.toPublic(),
           });
         }
       }

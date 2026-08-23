@@ -93,30 +93,29 @@ class GameService {
 
     room.setState(ROOM_STATE.RESULT);
 
-    const active  = room.getActivePlayerList();
+    const active  = room.getActivePlayerList().filter(p => !p.hasLeft); // ayrılanları sayma
     const winner  = room.getRoundWinner();
     const tied    = winner === null;
 
     let eliminated = null;
 
     if (room.gameMode === GAME.MODE_CLASSIC) {
-      // Classic: puan ver, elimination yok
-      if (!tied && winner) {
+      // Classic: puan ver, elimination yok (ama ayrılanlara puan verme)
+      if (!tied && winner && !winner.hasLeft) {
         const pts = winner.isPerfect ? 2 : 1;
         winner.addPoints(pts);
       }
     } else {
-      // Elimination: puan yok, en kötü elenir
+      // Elimination: puan yok, en kötü elenir (ama ayrılanlar hariç)
       if (!tied) {
         const worst = room.getWorstPlayer();
-        if (worst && active.length > 1) {
+        if (worst && active.length > 1 && !worst.hasLeft) {
           worst.elimRound = room.round;
           room.eliminatePlayer(worst.socketId);
           eliminated = worst.name;
           console.log(`[Game] ${worst.name} elendi (tur ${room.round})`);
         }
       }
-      // Beraberlikte kimse elenmiyor
     }
 
     const results = active.map(p => p.toRoundResult()).sort((a, b) => a.diff - b.diff);
@@ -135,14 +134,16 @@ class GameService {
     });
 
     const champion = room.getChampion();
-    if (champion) {
+    if (champion && !champion.hasLeft) {
       setTimeout(() => this._endGame(room, champion), GAME.RESULT_DELAY_MS);
       return;
     }
 
     if (room.activeCount === 1) {
       const last = room.getActivePlayerList()[0];
-      setTimeout(() => this._endGame(room, last), GAME.RESULT_DELAY_MS);
+      if (last && !last.hasLeft) {
+        setTimeout(() => this._endGame(room, last), GAME.RESULT_DELAY_MS);
+      }
     }
   }
 

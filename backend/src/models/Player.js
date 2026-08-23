@@ -7,6 +7,7 @@ class Player {
     this.isHost       = false;
     this.isEliminated = false;
     this.connected    = true;
+    this.hasLeft      = false;  // odadan ayrıldı mı
     this.elimRound    = null;
     this.color        = null;   // hex renk — frontend tarafından atanır
 
@@ -40,6 +41,7 @@ class Player {
       isHost:       this.isHost,
       isReady:      this.isReady,
       connected:    this.connected,
+      hasLeft:      this.hasLeft,
       isEliminated: this.isEliminated,
       elimRound:    this.elimRound,
       color:        this.color,

@@ -1445,7 +1445,47 @@ input {
 
     /* Game table */
     .ts-game-header { padding: 10px 14px; height: 44px; }
-/* ts-table-center — sabit px əvəzinə nisbi ölçü, kiçildilmiş */
+    
+    /* ts-table-center — mobil için küçültülmüş */
+    .ts-table-center {
+        min-width: 140px;
+        min-height: 140px;
+        padding: 15px;
+    }
+
+    .ts-target-label {
+        font-size: 9px;
+        letter-spacing: 2px;
+    }
+
+    .ts-target-time {
+        font-size: 36px;
+        letter-spacing: -1px;
+    }
+
+    .ts-unit {
+        font-size: 14px;
+    }
+
+    .ts-table-hint {
+        font-size: 8px;
+        margin-top: 6px;
+    }
+
+    /* Countdown mobil */
+    .ts-table-countdown {
+        min-width: 160px;
+        min-height: 160px;
+    }
+
+    .ts-countdown-num {
+        font-size: 64px;
+    }
+
+    .ts-countdown-label {
+        font-size: 10px;
+    }
+/* ts-table-center — daha geniş, daha okunabilir round göstergesi */
 .ts-table-center {
     position: absolute;
     top: 50%; left: 50%;
@@ -1455,56 +1495,78 @@ input {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
-    width: 16vmin;
-    height: 16vmin;
-    max-width: 130px;
-    max-height: 130px;
+    gap: 6px;
+    min-width: 180px;
+    min-height: 180px;
+    background: radial-gradient(circle, rgba(15,17,23,0.95) 0%, rgba(15,17,23,0.7) 70%, transparent 100%);
+    border-radius: 50%;
     pointer-events: none;
     text-align: center;
+    padding: 20px;
 }
 
 .ts-target-label {
-    font-size: clamp(7px, 1.1vmin, 10px);
-    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.5);
+    margin-bottom: 4px;
 }
 
 .ts-target-time {
-    font-size: clamp(16px, 3.6vmin, 30px);
+    font-size: 52px;
     font-weight: 900;
     line-height: 1;
-    color: var(--yellow);
-    letter-spacing: -1px;
-    text-shadow: 0 0 6px rgba(0,0,0,.8), 0 0 2px rgba(0,0,0,.9);
-    white-space: nowrap;
+    color: #fff;
+    letter-spacing: -2px;
+    text-shadow: 
+        0 0 20px rgba(255,255,255,.3),
+        0 4px 12px rgba(0,0,0,.8);
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
 }
 
 .ts-unit {
-    font-size: clamp(8px, 1.4vmin, 12px);
-    color: var(--muted);
-    font-weight: 500;
-    margin-left: 1px;
+    font-size: 18px;
+    color: rgba(255,255,255,.6);
+    font-weight: 600;
+    margin-left: 4px;
 }
 
 .ts-table-hint {
-    font-size: clamp(6px, 0.9vmin, 9px);
-    color: var(--dim);
-    letter-spacing: .5px;
-    margin-top: 2px;
+    font-size: 10px;
+    color: rgba(255,255,255,.35);
+    letter-spacing: 1.5px;
+    margin-top: 8px;
+    text-transform: uppercase;
     animation: breathe 2s ease-in-out infinite;
 }
 
-/* Countdown da eyni məntiqlə */
+/* Countdown da eyni məntiqlə — daha böyük və aydın */
 .ts-table-countdown {
-    width: 22vmin;
-    height: 22vmin;
-    max-width: 180px;
-    max-height: 180px;
+    min-width: 220px;
+    min-height: 220px;
+    gap: 8px;
 }
 
 .ts-countdown-num {
-    font-size: clamp(30px, 7vmin, 64px);
-    text-shadow: 0 0 8px rgba(0,0,0,.85);
+    font-size: 84px;
+    font-weight: 900;
+    line-height: 1;
+    text-shadow: 
+        0 0 30px currentColor,
+        0 4px 20px rgba(0,0,0,.9);
+}
+
+.ts-countdown-label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.45);
+    animation: breathe 1s ease-in-out infinite;
 }
 
 
@@ -1724,6 +1786,15 @@ input {
 
 .pp-empty {
     opacity: .25;
+}
+
+.pp-left {
+    opacity: .5;
+}
+
+.pp-left .pp-name {
+    text-decoration: line-through;
+    color: var(--dim) !important;
 }
 
 .pp-avatar {

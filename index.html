@@ -478,8 +478,9 @@ function updateWaiting(room) {
         const isSelf  = p.name === S.myName;
         const color   = p.color || PLAYER_COLORS[i % PLAYER_COLORS.length];
         const isReady = p.isHost || p.isReady;
+        const hasLeft = p.hasLeft || false;
         return `
-        <div class="pp-player ${isSelf ? "pp-self" : ""} ${isReady ? "pp-ready" : ""}">
+        <div class="pp-player ${isSelf ? "pp-self" : ""} ${isReady ? "pp-ready" : ""} ${hasLeft ? "pp-left" : ""}">
             <div class="pp-avatar" style="background:${color}20; border-color:${color}40; color:${color}">
                 ${p.name.charAt(0).toUpperCase()}
             </div>
@@ -487,7 +488,7 @@ function updateWaiting(room) {
                 <span class="pp-name ${isSelf ? "pp-name-clickable" : ""}"
                       style="${isSelf ? `color:${color};cursor:pointer` : ""}"
                       ${isSelf ? `onclick="openColorPicker(event)"` : ""}>
-                    ${p.name}${isSelf ? " ✎" : ""}
+                    ${p.name}${isSelf ? " ✎" : ""}${hasLeft ? " (odadan ayrıldı)" : ""}
                 </span>
                 <span class="pp-tag">${p.isHost ? "HOST" : isSelf ? "SƏN" : "OYUNÇU"}</span>
             </div>
@@ -1090,6 +1091,7 @@ function renderRoundResult({ round, target, tied, winner, isPerfect, eliminated,
         const score  = scoreMap[p.name] ?? 0;
         const isSelf = p.name === S.myName;
         const color  = playerColor(p.name);
+        const hasLeft = S.players.find(pl => pl.name === p.name)?.hasLeft || false;
 
         // Elimination modda puan/badge yok
         const ptsIcon = (!isElimMode && isWin) ? (isPerfect
@@ -1116,7 +1118,7 @@ function renderRoundResult({ round, target, tied, winner, isPerfect, eliminated,
             <div class="ts-rr-player">
                 <span class="ts-rr-dot" style="background:${color}; box-shadow:0 0 6px ${color}80"></span>
                 <span class="ts-rr-name" style="color:${color}; font-weight:${isSelf?800:600}">
-                    ${p.name}${isElim?" ⚡":""}
+                    ${p.name}${isElim?" ⚡":""}${hasLeft?" (ayrıldı)":""}
                 </span>
             </div>
             <span class="ts-rr-time" style="color:${color}">${p.time.toFixed(2)}s</span>

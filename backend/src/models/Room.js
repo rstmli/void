@@ -67,7 +67,7 @@ class Room {
   }
 
   getRoundWinner() {
-    const active = this.getActivePlayerList().sort((a, b) => a.currentDiff - b.currentDiff);
+    const active = this.getActivePlayerList().filter(p => !p.hasLeft).sort((a, b) => a.currentDiff - b.currentDiff);
     if (!active.length) return null;
     const best = active[0].currentDiff;
     const tied = active.filter(p => Math.abs(p.currentDiff - best) < 0.001);
@@ -75,7 +75,7 @@ class Room {
   }
 
   getWorstPlayer() {
-    const active = this.getActivePlayerList().sort((a, b) => b.currentDiff - a.currentDiff);
+    const active = this.getActivePlayerList().filter(p => !p.hasLeft).sort((a, b) => b.currentDiff - a.currentDiff);
     if (!active.length) return null;
     const worst = active[0].currentDiff;
     const tied  = active.filter(p => Math.abs(p.currentDiff - worst) < 0.001);
@@ -90,10 +90,11 @@ class Room {
 
   getChampion() {
     if (this.gameMode === GAME.MODE_ELIMINATION) {
-      // Elimination'da aktif tek kişi kaldıysa şampiyon
-      return this.activeCount === 1 ? this.getActivePlayerList()[0] : null;
+      // Elimination'da aktif tek kişi kaldıysa şampiyon (ayrılanlar hariç)
+      const activePlayers = this.getActivePlayerList().filter(p => !p.hasLeft);
+      return activePlayers.length === 1 ? activePlayers[0] : null;
     }
-    return this.getPlayerList().find(p => p.score >= this.winScore) ?? null;
+    return this.getPlayerList().filter(p => !p.hasLeft).find(p => p.score >= this.winScore) ?? null;
   }
 
   setState(s) { this.state = s; }
