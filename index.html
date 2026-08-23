@@ -476,7 +476,13 @@ function loadSavedName() {
         nameScreen.classList.add("hidden");
         menuScreen.classList.remove("hidden");
         $("menuPlayerName").textContent = saved;
-        lucide.createIcons();
+        lobbyView.classList.remove("hidden");
+        setTimeout(() => lucide.createIcons(), 100);
+    } else {
+        // İsim yoksa name screen göster
+        nameScreen.classList.remove("hidden");
+        menuScreen.classList.add("hidden");
+        lobbyView.classList.remove("hidden");
     }
 }
 
@@ -1992,9 +1998,11 @@ function renderSoloResult(time, diff) {
 /* ════════════════════════════════════════════════════════════
    INIT
 ════════════════════════════════════════════════════════════ */
+console.log("[VOID] Oyun başlatılıyor...");
 loadSavedName();
 lucide.createIcons();
 chatPanel.classList.add("hidden-chat"); // başta gizli — odaya girince açılır
+console.log("[VOID] İlk ekran:", nameScreen.classList.contains("hidden") ? "MENU" : "NAME");
 </script>
 </body>
 </html>
