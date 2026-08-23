@@ -605,11 +605,11 @@ function appendChat(name, message, type = "normal") {
     const div = document.createElement("div");
     div.className = `chat-msg chat-${type}`;
     if (type === "system" || type === "leave") {
-        div.innerHTML = `<span class="chat-sys">${message}</span>`;
+        div.innerHTML = `<span class="chat-sys">${escapeHtml(message)}</span>`;
     } else {
         const isSelf = name === S.myName;
         div.innerHTML = `
-            <span class="chat-name ${isSelf ? "chat-self" : ""}">${name}</span>
+            <span class="chat-name ${isSelf ? "chat-self" : ""}">${escapeHtml(name)}</span>
             <span class="chat-text">${escapeHtml(message)}</span>`;
     }
     chatMessages.appendChild(div);
@@ -617,7 +617,27 @@ function appendChat(name, message, type = "normal") {
 }
 
 function escapeHtml(str) {
-    return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g,"&amp;")
+        .replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;")
+        .replace(/"/g,"&quot;")
+        .replace(/'/g,"&#x27;")
+        .replace(/\//g,"&#x2F;");
+}
+
+function sanitizeName(name) {
+    // Yalnız a-z, A-Z, 0-9, Azərbaycan hərfləri
+    return name.replace(/[^a-zA-Z0-9əşıöüçğƏŞİÖÜÇĞ\s\-_]/g, '').trim();
+}
+
+function validateName(name) {
+    const sanitized = sanitizeName(name);
+    if (!sanitized) return { valid: false, error: "Ad yalnız hərf və rəqəmlərdən ibarət ola bilər" };
+    if (sanitized.length < 2) return { valid: false, error: "Ad ən az 2 simvol olmalıdır" };
+    if (sanitized.length > 16) return { valid: false, error: "Ad maksimum 16 simvol ola bilər" };
+    return { valid: true, name: sanitized };
 }
 
 $("chatToggle").addEventListener("click", () => {
@@ -643,8 +663,12 @@ function sendChat() {
 $("createRoomBtn").addEventListener("click", () => {
     const name = $("playerNameInput").value.trim();
     if (!name) return showError("Adını daxil et");
-    S.myName = name;
-    socket.emit("room:create", { name });
+    
+    const validation = validateName(name);
+    if (!validation.valid) return showError(validation.error);
+    
+    S.myName = validation.name;
+    socket.emit("room:create", { name: validation.name });
 });
 
 $("joinRoomBtn").addEventListener("click", () => {
@@ -652,8 +676,12 @@ $("joinRoomBtn").addEventListener("click", () => {
     const code = $("roomCodeInput").value.trim().toUpperCase();
     if (!name) return showError("Adını daxil et");
     if (!code) return showError("Oda kodunu daxil et");
-    S.myName = name;
-    socket.emit("room:join", { name, code });
+    
+    const validation = validateName(name);
+    if (!validation.valid) return showError(validation.error);
+    
+    S.myName = validation.name;
+    socket.emit("room:join", { name: validation.name, code });
 });
 
 $("playerNameInput").addEventListener("keydown", e => { if (e.code === "Enter") $("createRoomBtn").click(); });

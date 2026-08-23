@@ -286,9 +286,10 @@ class GameService {
   }
 
   broadcastChat(room, senderName, message) {
+    const { sanitizeMessage } = require("./RoomService");
     this._emit(room.code, "chat:message", {
       name:      senderName,
-      message:   message.slice(0, 200),
+      message:   sanitizeMessage(message),
       timestamp: Date.now(),
     });
   }

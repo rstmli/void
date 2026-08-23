@@ -3,6 +3,27 @@ const Player               = require("../models/Player");
 const generateCode         = require("../utils/generateCode");
 const { GAME }             = require("../config/ServerConfig");
 
+function sanitizeName(name) {
+  // Yalnız a-z, A-Z, 0-9, Azərbaycan hərfləri, space, - və _
+  return String(name).replace(/[^a-zA-Z0-9əşıöüçğƏŞİÖÜÇĞ\s\-_]/g, '').trim();
+}
+
+function validateName(name) {
+  const sanitized = sanitizeName(name);
+  if (!sanitized) return { valid: false, error: "Ad yalnız hərf və rəqəmlərdən ibarət ola bilər" };
+  if (sanitized.length < 2) return { valid: false, error: "Ad ən az 2 simvol olmalıdır" };
+  if (sanitized.length > 16) return { valid: false, error: "Ad maksimum 16 simvol ola bilər" };
+  return { valid: true, name: sanitized };
+}
+
+function sanitizeMessage(msg) {
+  // XSS və injection qarşı müdafiə
+  return String(msg)
+    .replace(/[<>'"\/\\]/g, '') // HTML və script təhlükəsi
+    .trim()
+    .slice(0, 200); // Maksimum 200 simvol
+}
+
 class RoomService {
   constructor() { this._rooms = new Map(); }
 
@@ -18,6 +39,11 @@ class RoomService {
   deleteRoom(code) { this._rooms.delete(code); }
 
   joinRoom(socketId, name, roomCode) {
+    // Name validation
+    const nameValidation = validateName(name);
+    if (!nameValidation.valid) return { success: false, error: nameValidation.error };
+    const sanitizedName = nameValidation.name;
+    
     const room = this.findRoom(roomCode);
     if (!room)     return { success: false, error: "Oda tapılmadı" };
     if (room.isFull) return { success: false, error: "Oda dolu" };
@@ -30,10 +56,10 @@ class RoomService {
     // Nickname unique kontrolü (sadece aktif oyuncular)
     const taken = room.getPlayerList()
       .filter(p => !p.hasLeft)
-      .some(p => p.name.toLowerCase() === name.toLowerCase());
-    if (taken) return { success: false, error: `"${name}" adı artıq istifadə olunur` };
+      .some(p => p.name.toLowerCase() === sanitizedName.toLowerCase());
+    if (taken) return { success: false, error: `"${sanitizedName}" adı artıq istifadə olunur` };
 
-    const player = new Player(socketId, name);
+    const player = new Player(socketId, sanitizedName);
     const added = room.addPlayer(player);
     if (!added) return { success: false, error: "Oda doldu" };
     
@@ -107,3 +133,4 @@ class RoomService {
 }
 
 module.exports = new RoomService();
+module.exports.sanitizeMessage = sanitizeMessage;

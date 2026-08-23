@@ -175,6 +175,7 @@ class SocketHandler {
   _registerChatEvents(socket) {
     socket.on("chat:send", ({ code, message }) => {
       if (!message?.trim()) return;
+      if (message.trim().length > 200) return; // Max 200 karakter
       const room = roomService.findRoom(code);
       if (!room) return;
       const player = room.getPlayer(socket.id);
